@@ -1,0 +1,963 @@
+/* ==========================================================================
+   VARIABLES GLOBALES
+   Cambiá acá la paleta de colores y tipografías para toda la página.
+   ========================================================================== */
+:root {
+  /* Paleta: crema + verde oliva salvia
+     --color-texto y --color-texto-claro están un poco más oscuros que los
+     hex originalmente pedidos (#6B7355 / #8B9675): a ese nivel de claridad
+     no llegaban a 4.5:1 de contraste (AA) sobre el fondo crema, sobre todo
+     --color-texto-claro contra --color-fondo-secundario. Se oscurecieron
+     lo mínimo posible manteniendo el mismo tono, ver detalle en cada
+     comentario. */
+  --color-fondo: #f7f3ec;             /* crema / blanco roto */
+  --color-fondo-secundario: #efeae0;  /* variante para alternar secciones */
+  --color-texto: #5b6248;             /* verde oliva salvia (oscurecido ~15% vs. #6b7355: 4.5:1 quedaba justo en el límite) */
+  --color-texto-claro: #616b4e;       /* verde oliva más suave; casi tan oscuro como el principal porque es el límite para pasar 4.5:1 sobre --color-fondo-secundario */
+  --color-acento: var(--color-texto); /* kickers y bordes: mismo verde oliva que el texto */
+  --color-texto-boton: #262b1d;       /* verde muy oscuro, solo para texto sobre --color-detalle (botones): el verde oliva principal no tiene contraste suficiente sobre el terracota */
+  --color-detalle: #d4a373;           /* terracota: botones, highlights */
+  --color-detalle-oscuro: #b48a62;    /* hover de botones sólidos */
+
+  /* Tipografías */
+  --font-titulos: 'Playfair Display', 'Georgia', serif;
+  --font-texto: 'Montserrat', 'Helvetica Neue', sans-serif;
+
+  /* Layout */
+  --max-width: 1100px;
+  --transition-suave: 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ==========================================================================
+   RESET BÁSICO
+   ========================================================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-texto);
+  color: var(--color-texto);
+  background-color: var(--color-fondo);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+section {
+  padding: 5rem 1.5rem;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+/* ==========================================================================
+   BOTÓN DE MÚSICA DE FONDO
+   Flotante y fijo arriba a la izquierda, por encima de todo el contenido
+   (menos el modal de Regalos, que lo tapa mientras está abierto).
+   ========================================================================== */
+.music-toggle {
+  position: fixed;
+  top: 1.25rem;
+  left: 1.25rem;
+  z-index: 40;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-acento);
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(63, 58, 52, 0.15);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.music-toggle:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 18px rgba(63, 58, 52, 0.2);
+}
+
+/* Los dos íconos (sonando / muteado) se togglean con la clase .is-playing
+   en vez de tener un solo SVG que cambia de forma; mismo patrón que ya
+   usamos en .copy-btn para copiar CBU/alias. */
+.music-toggle__icon {
+  position: absolute;
+}
+
+.music-toggle__icon--on {
+  display: none;
+}
+
+.music-toggle.is-playing .music-toggle__icon--on {
+  display: block;
+}
+
+.music-toggle.is-playing .music-toggle__icon--off {
+  display: none;
+}
+
+/* Onditas que pulsan en una esquina del botón, solo mientras suena */
+.music-toggle__waves {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.music-toggle.is-playing .music-toggle__waves {
+  opacity: 1;
+}
+
+.music-toggle__waves span {
+  display: block;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--color-detalle);
+  transform-origin: bottom;
+  animation: musicWave 0.9s ease-in-out infinite;
+}
+
+.music-toggle__waves span:nth-child(1) {
+  height: 4px;
+  animation-delay: 0s;
+}
+
+.music-toggle__waves span:nth-child(2) {
+  height: 8px;
+  animation-delay: 0.15s;
+}
+
+.music-toggle__waves span:nth-child(3) {
+  height: 5px;
+  animation-delay: 0.3s;
+}
+
+@keyframes musicWave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+/* ==========================================================================
+   SEPARADOR ENTRE SECCIONES
+   Componente reutilizable: repetí este bloque (imagen de anillos) como
+   PRIMER hijo de la sección que sigue al corte. Se posiciona sobre el
+   borde exacto entre las dos secciones (mitad en el fondo de arriba,
+   mitad en el de abajo) en vez de vivir en su propio espacio dentro del
+   flujo normal.
+
+   Requiere que la sección contenedora tenga position: relative (ya se lo
+   dimos a .whyyou, .details, .dresscode, .gifts y .rsvp).
+   ========================================================================== */
+.section-divider {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none; /* es decorativo, no debe interceptar clicks/hover */
+}
+
+.section-divider img {
+  display: block;
+  width: 90px;
+  height: auto; /* mantiene la proporción original de la imagen */
+}
+
+/* ==========================================================================
+   BOTONES
+   ========================================================================== */
+.btn {
+  display: inline-block;
+  padding: 0.9rem 2.2rem;
+  border: 1.5px solid var(--color-detalle);
+  border-radius: 999px;
+  font-family: var(--font-texto);
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: all var(--transition-suave);
+  cursor: pointer;
+  background: transparent;
+}
+
+/* Efecto hover compartido por todas las variantes: se levanta apenas y
+   suma una sombra suave (además del cambio de color que ya define cada
+   variante). Al soltar el click, vuelve a su lugar sin la sombra. */
+.btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(91, 98, 72, 0.25);
+}
+
+.btn:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(91, 98, 72, 0.2);
+}
+
+/* Outline claro: se usa sobre el hero (fondo oscuro con foto) */
+.btn--outline {
+  color: var(--color-detalle);
+  border-color: var(--color-detalle);
+}
+
+.btn--outline:hover {
+  background: var(--color-detalle);
+  color: var(--color-texto-boton);
+}
+
+/* Sólido: botones de acción principal (Cómo llegar, Cerrar)
+   Usa --color-texto-boton (no --color-texto): el verde oliva principal es
+   demasiado claro para pasar 4.5:1 sobre el terracota de --color-detalle. */
+.btn--solid {
+  background: var(--color-detalle);
+  color: var(--color-texto-boton);
+  border-color: var(--color-detalle);
+}
+
+.btn--solid:hover {
+  background: var(--color-detalle-oscuro);
+  border-color: var(--color-detalle-oscuro);
+}
+
+/* Outline oscuro: se usa sobre fondos claros (fuera del hero) */
+.btn--outline-dark {
+  color: var(--color-acento);
+  border-color: var(--color-acento);
+}
+
+.btn--outline-dark:hover {
+  background: var(--color-acento);
+  /* --color-acento ahora es igual a --color-texto: si el texto también
+     fuera --color-texto quedaría invisible sobre su propio color de fondo. */
+  color: var(--color-fondo);
+}
+
+/* ==========================================================================
+   HERO
+   ========================================================================== */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+  /* Overlay oscuro (tono neutro cálido, no el bordó anterior) para que el
+     texto claro siga siendo legible sobre la foto de fondo. */
+  background:
+    linear-gradient(180deg, rgba(63, 58, 52, 0.55) 0%, rgba(63, 58, 52, 0.78) 100%),
+    url('assets/img/hero-bg.jpg') center / cover no-repeat;
+  background-color: var(--color-texto); /* fallback mientras no hay imagen */
+}
+
+.hero__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero__content {
+  position: relative;
+  z-index: 1;
+  padding: 2rem 1.25rem;
+  color: var(--color-fondo);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hero__kicker {
+  font-size: 0.8rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--color-detalle);
+  margin-bottom: 0.5rem;
+}
+
+.hero__names {
+  font-family: var(--font-titulos);
+  font-weight: 500;
+  font-size: clamp(2.5rem, 9vw, 5rem);
+  line-height: 1.1;
+}
+
+.hero__amp {
+  font-style: italic;
+  color: var(--color-detalle);
+  padding: 0 0.15em;
+}
+
+.hero__date {
+  font-size: 1rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-top: 0.75rem;
+  margin-bottom: 2rem;
+  color: var(--color-fondo);
+}
+
+/* Countdown */
+.countdown {
+  display: flex;
+  gap: clamp(0.75rem, 4vw, 2rem);
+  margin-bottom: 2.5rem;
+}
+
+.countdown__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 3.5rem;
+}
+
+.countdown__number {
+  font-family: var(--font-titulos);
+  font-size: clamp(1.75rem, 5vw, 2.75rem);
+  font-weight: 600;
+  color: var(--color-fondo);
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-detalle);
+  margin-top: 0.25rem;
+}
+
+/* Flecha de scroll
+   El visual es una línea fina de 1px, pero el área táctil real (el <a>)
+   se agranda a 44x44px para que sea fácil de tocar en celulares. */
+.hero__scroll {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 0.5rem;
+}
+
+.hero__scroll span {
+  display: block;
+  width: 1px;
+  height: 2.5rem;
+  background: var(--color-detalle);
+  position: relative;
+  animation: scrollPulse 2s ease-in-out infinite;
+}
+
+@keyframes scrollPulse {
+  0%, 100% { opacity: 0.3; transform: scaleY(0.7); transform-origin: top; }
+  50% { opacity: 1; transform: scaleY(1); transform-origin: top; }
+}
+
+/* ==========================================================================
+   ANIMACIONES DE SCROLL (reveal)
+   Las secciones futuras van a reutilizar esta clase .reveal
+   ========================================================================== */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* El hero se muestra sin esperar el scroll */
+.hero .reveal {
+  opacity: 1;
+  transform: none;
+  animation: heroFadeIn 1s ease both;
+}
+
+.hero .reveal:nth-child(1) { animation-delay: 0.1s; }
+.hero .reveal:nth-child(2) { animation-delay: 0.3s; }
+.hero .reveal:nth-child(3) { animation-delay: 0.5s; }
+.hero .reveal:nth-child(4) { animation-delay: 0.7s; }
+.hero .reveal:nth-child(5) { animation-delay: 0.9s; }
+
+@keyframes heroFadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal, .hero .reveal, .hero__scroll span {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .btn:hover, .btn:active {
+    transform: none;
+  }
+  .music-toggle__waves span {
+    animation: none;
+    transform: scaleY(1);
+  }
+  .music-toggle:hover {
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   ENCABEZADOS DE SECCIÓN (reutilizable por todas las secciones futuras)
+   ========================================================================== */
+.section__kicker {
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-acento);
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.section__title {
+  font-family: var(--font-titulos);
+  font-weight: 500;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  color: var(--color-texto);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.section__text {
+  text-align: center;
+  max-width: 42rem;
+  margin: 0 auto 3rem;
+  color: var(--color-texto-claro);
+  font-weight: 300;
+}
+
+/* ==========================================================================
+   POR QUÉ LOS INVITAMOS
+   ========================================================================== */
+.whyyou {
+  position: relative; /* ancla al .section-divider que se apoya en su borde superior */
+  background-color: var(--color-fondo);
+  text-align: center;
+}
+
+/* ==========================================================================
+   DETALLES DEL EVENTO
+   ========================================================================== */
+.details {
+  position: relative; /* ancla al .section-divider que se apoya en su borde superior */
+  background-color: var(--color-fondo-secundario);
+}
+
+.details__cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.details__card {
+  background: var(--color-fondo);
+  border: 1px solid var(--color-acento);
+  border-radius: 0.5rem;
+  padding: 2.25rem 1.5rem;
+  text-align: center;
+}
+
+.details__icon {
+  font-size: 1.75rem;
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+.details__card-title {
+  font-family: var(--font-titulos);
+  font-size: 1.4rem;
+  color: var(--color-texto);
+  margin-bottom: 0.5rem;
+}
+
+.details__time {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--color-detalle);
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.details__place {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.details__address {
+  color: var(--color-texto-claro);
+  font-size: 0.9rem;
+}
+
+.details__map {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(63, 58, 52, 0.12);
+  margin-bottom: 2rem;
+}
+
+.details__map iframe {
+  display: block;
+  width: 100%;
+}
+
+.details__cta {
+  display: block;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+@media (min-width: 700px) {
+  .details__cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ==========================================================================
+   DRESS CODE
+   ========================================================================== */
+.dresscode {
+  position: relative; /* ancla al .section-divider que se apoya en su borde superior */
+  background-color: var(--color-fondo);
+  text-align: center;
+}
+
+.dresscode__icon {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1.5rem;
+  border-radius: 50%;
+  background: var(--color-fondo-secundario);
+  border: 1.5px solid var(--color-acento);
+  color: var(--color-texto);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dresscode__title {
+  font-family: var(--font-titulos);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(2.75rem, 8vw, 4rem);
+  color: var(--color-texto);
+  margin-bottom: 2rem;
+}
+
+.dresscode__swatches {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.dresscode__swatch {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(63, 58, 52, 0.15);
+}
+
+.dresscode__notice {
+  background: var(--color-fondo-secundario);
+  border: 1px solid var(--color-acento);
+  border-radius: 0.75rem;
+  padding: 1.75rem 1.5rem;
+  max-width: 34rem;
+  margin: 0 auto 2.5rem;
+}
+
+.dresscode__notice-kicker {
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--color-acento);
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+
+.dresscode__notice-text {
+  font-family: var(--font-titulos);
+  font-style: italic;
+  color: var(--color-texto);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin-bottom: 0.75rem;
+}
+
+.dresscode__notice-text:last-child {
+  margin-bottom: 0;
+}
+
+.dresscode__cta {
+  display: inline-block;
+}
+
+/* ==========================================================================
+   REGALOS (sección + botón disparador)
+   ========================================================================== */
+.gifts {
+  position: relative; /* ancla al .section-divider que se apoya en su borde superior */
+  background-color: var(--color-fondo-secundario);
+  text-align: center;
+}
+
+.gifts__trigger {
+  display: inline-block;
+}
+
+/* ==========================================================================
+   MODAL DE REGALOS
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(63, 58, 52, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal-overlay.is-open {
+  opacity: 1;
+}
+
+.modal {
+  position: relative;
+  background: var(--color-fondo);
+  border-radius: 1rem;
+  max-width: 26rem;
+  width: 100%;
+  padding: 2.5rem 1.75rem 2rem;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(63, 58, 52, 0.3);
+  transform: translateY(16px) scale(0.97);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-overlay.is-open .modal {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.modal__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--color-texto-claro);
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.2s ease;
+}
+
+.modal__close:hover {
+  color: var(--color-texto);
+}
+
+.modal__icon {
+  width: 3.75rem;
+  height: 3.75rem;
+  margin: 0 auto 1.25rem;
+  border-radius: 50%;
+  background: var(--color-fondo-secundario);
+  border: 1.5px solid var(--color-acento);
+  color: var(--color-texto);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal__text {
+  font-family: var(--font-titulos);
+  font-style: italic;
+  color: var(--color-texto);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin-bottom: 1.75rem;
+}
+
+.gift-field {
+  background: var(--color-fondo-secundario);
+  border: 1px solid var(--color-acento);
+  border-radius: 0.6rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.9rem;
+  text-align: left;
+}
+
+.gift-field__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-acento);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.gift-field__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.gift-field__value {
+  flex: 1;
+  min-width: 0; /* permite que el texto largo (CBU) se achique y corte con word-break en vez de desbordar el flex row */
+  font-weight: 500;
+  font-size: 0.95rem;
+  word-break: break-all;
+}
+
+.gift-field__value--script {
+  font-family: var(--font-titulos);
+  font-style: italic;
+  font-size: 1.1rem;
+}
+
+.copy-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--color-texto);
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.2s ease;
+}
+
+.copy-btn:hover {
+  color: var(--color-detalle);
+}
+
+.copy-btn.is-copied .copy-btn__icon-copy {
+  display: none;
+}
+
+.copy-btn:not(.is-copied) .copy-btn__icon-check {
+  display: none;
+}
+
+.copy-btn.is-copied {
+  color: var(--color-acento);
+}
+
+.modal__meta {
+  font-size: 0.8rem;
+  color: var(--color-texto-claro);
+  margin: 1rem 0 1.5rem;
+  line-height: 1.6;
+}
+
+.modal__close-full {
+  width: 100%;
+}
+
+/* ==========================================================================
+   RSVP
+   ========================================================================== */
+.rsvp {
+  position: relative; /* ancla al .section-divider que se apoya en su borde superior */
+  /* --color-fondo (no -secundario): alterna con .gifts, la sección de
+     arriba, para que el separador entre ambas corte entre dos tonos
+     distintos en vez de quedar sobre el mismo color de los dos lados. */
+  background-color: var(--color-fondo);
+  text-align: center;
+}
+
+/* ==========================================================================
+   FORMULARIO DE RSVP
+   ========================================================================== */
+.rsvp-form {
+  max-width: 28rem;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.form-field {
+  margin-bottom: 1.5rem;
+}
+
+.form-field__label {
+  display: block;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-texto);
+  margin-bottom: 0.5rem;
+}
+
+.form-field__input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--color-acento);
+  border-radius: 0.5rem;
+  background: var(--color-fondo);
+  color: var(--color-texto);
+  font-family: var(--font-texto);
+  font-size: 1rem; /* 16px: evita el auto-zoom de iOS al hacer foco en el input */
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-field__input:focus {
+  outline: none;
+  border-color: var(--color-detalle);
+  box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.3);
+}
+
+.form-field__textarea {
+  resize: vertical;
+  min-height: 6rem;
+  font-family: inherit;
+}
+
+.rsvp-form__radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.75rem;
+}
+
+.rsvp-form__radio {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0; /* agranda el área táctil sin agrandar el texto */
+  font-size: 0.95rem;
+  color: var(--color-texto);
+  cursor: pointer;
+}
+
+.rsvp-form__radio input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-detalle);
+  cursor: pointer;
+}
+
+.rsvp-form__submit {
+  width: 100%;
+}
+
+.rsvp-form__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.rsvp-form__error {
+  background: rgba(156, 74, 59, 0.08);
+  border: 1px solid rgba(156, 74, 59, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  color: #9c4a3b;
+  font-size: 0.9rem;
+}
+
+.rsvp-success {
+  max-width: 28rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.rsvp-success__text {
+  font-family: var(--font-titulos);
+  font-style: italic;
+  font-size: 1.4rem;
+  color: var(--color-texto);
+  margin-bottom: 1.5rem;
+}
+
+.rsvp-success__again {
+  padding: 0.65rem 1.5rem;
+  font-size: 0.75rem;
+}
+
+/* ==========================================================================
+   RESPONSIVE (mobile-first ya aplicado arriba; ajustes para pantallas grandes)
+   ========================================================================== */
+@media (min-width: 768px) {
+  section {
+    padding: 7rem 2rem;
+  }
+}
+
+/* Pantallas muy angostas (320px-380px): achicamos un poco el padding
+   horizontal de los botones para que los textos más largos no queden
+   apretados ni se corten en dos líneas de forma incómoda. La altura
+   (y por lo tanto el área táctil) no se ve afectada. */
+@media (max-width: 380px) {
+  .btn {
+    padding: 0.9rem 1.5rem;
+    font-size: 0.8rem;
+  }
+}
