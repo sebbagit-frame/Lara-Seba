@@ -272,10 +272,15 @@ section {
   text-align: center;
   overflow: hidden;
   /* Overlay oscuro (tono neutro cálido, no el bordó anterior) para que el
-     texto claro siga siendo legible sobre la foto de fondo. */
+     texto claro siga siendo legible sobre la foto de fondo.
+     La foto es vertical y las caras están en el tercio superior: "center
+     35%" muestra más de la zona de cuellos/parte superior (a mayor
+     porcentaje, más se revela de la parte de abajo de la imagen, osea
+     menos recorte "desde arriba"). Se afina un poco más en el media query
+     de 768px de más abajo. */
   background:
-    linear-gradient(180deg, rgba(63, 58, 52, 0.55) 0%, rgba(63, 58, 52, 0.78) 100%),
-    url('assets/img/hero-bg.jpg') center / cover no-repeat;
+    linear-gradient(180deg, rgba(63, 58, 52, 0.68) 0%, rgba(63, 58, 52, 0.9) 100%),
+    url('assets/img/LyS_fotografiaPro.JPG') center 35% / cover no-repeat;
   background-color: var(--color-texto); /* fallback mientras no hay imagen */
 }
 
@@ -290,6 +295,12 @@ section {
   z-index: 1;
   padding: 2rem 1.25rem;
   color: var(--color-fondo);
+  /* text-shadow es una propiedad heredada: definiéndola acá alcanza a
+     todo el texto del hero (kicker, "Lara & Seba", fecha, countdown) sin
+     repetirla en cada elemento. Es sutil a propósito, solo para separar
+     el texto de las zonas más luminosas de la foto, sin oscurecer la
+     imagen de fondo en sí (eso ya lo hace el gradiente del .hero). */
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -307,7 +318,10 @@ section {
 .hero__names {
   font-family: var(--font-titulos);
   font-weight: 500;
-  font-size: clamp(2.5rem, 9vw, 5rem);
+  /* Tope subido de 5rem a 6rem: en desktop, 9vw ya supera los 5rem a
+     partir de ~890px de ancho, así que el título quedaba topeado (y se
+     veía chico) en la mayoría de las pantallas grandes. */
+  font-size: clamp(2.5rem, 9vw, 6rem);
   line-height: 1.1;
 }
 
@@ -943,11 +957,64 @@ section {
 }
 
 /* ==========================================================================
+   FOOTER
+   ========================================================================== */
+.site-footer {
+  background-color: var(--color-texto);
+  text-align: center;
+  padding: 4rem 1.5rem;
+}
+
+.site-footer__logo {
+  width: 70px;
+  height: auto;
+  margin: 0 auto 1.5rem;
+  border-radius: 50%;
+  /* El logo es un JPEG con fondo crema sólido (no transparente: JPEG no
+     admite canal alfa). En vez de dejar que se note como un cuadrado claro
+     sobre el fondo oscuro, lo recortamos en círculo y le sumamos un borde +
+     sombra sutil, para que ese fondo se vea como una especie de medallón
+     intencional en vez de un error. Si en algún momento conseguís una
+     versión con transparencia real (PNG/WebP), se puede sacar todo esto y
+     que el logo flote libre sobre el fondo oscuro. */
+  border: 3px solid var(--color-fondo);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.site-footer__text {
+  font-family: var(--font-titulos);
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--color-fondo);
+  max-width: 26rem;
+  margin: 0 auto 0.75rem;
+}
+
+.site-footer__date {
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-detalle);
+}
+
+/* ==========================================================================
    RESPONSIVE (mobile-first ya aplicado arriba; ajustes para pantallas grandes)
    ========================================================================== */
 @media (min-width: 768px) {
   section {
     padding: 7rem 2rem;
+  }
+
+  .hero {
+    /* El hero de desktop es bajo y ancho: "cover" recorta mucho más en
+       altura que en mobile. Un poco menos que el 35% de mobile para
+       compensar ese recorte extra, pero mostrando igual la zona de
+       cuellos/parte superior en vez de las caras muy pegadas arriba. */
+    background-position: center 15%;
+  }
+
+  .site-footer {
+    padding: 5rem 2rem;
   }
 }
 
