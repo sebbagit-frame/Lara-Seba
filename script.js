@@ -193,6 +193,53 @@ function initRsvpForm() {
   const againBtn = document.getElementById('rsvp-again-btn');
   const submitBtnDefaultText = submitBtn.textContent;
 
+  // Menú y Mensaje solo aplican si la persona va a venir: el radio
+  // "asistencia" controla si ese bloque se ve (con transición).
+  const asistenciaRadios = form.querySelectorAll('input[name="asistencia"]');
+  const conditionalFields = document.getElementById('rsvp-conditional');
+  const menuCheckboxes = form.querySelectorAll('input[name="menu"]');
+  const menuTradicional = document.getElementById('rsvp-menu-tradicional');
+  const menuError = document.getElementById('rsvp-menu-error');
+
+  function syncConditionalFields() {
+    const checked = form.querySelector('input[name="asistencia"]:checked');
+    const asiste = !!checked && checked.value === 'Sí';
+    conditionalFields.classList.toggle('is-visible', asiste);
+    if (!asiste) {
+      menuError.hidden = true;
+    }
+  }
+
+  asistenciaRadios.forEach((radio) => {
+    radio.addEventListener('change', syncConditionalFields);
+  });
+
+  // "Menú tradicional" es excluyente con el resto: tildar uno destilda
+  // automáticamente el otro grupo, en cualquiera de los dos sentidos.
+  menuCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      if (!checkbox.checked) return;
+
+      if (checkbox === menuTradicional) {
+        menuCheckboxes.forEach((other) => {
+          if (other !== menuTradicional) other.checked = false;
+        });
+      } else {
+        menuTradicional.checked = false;
+      }
+    });
+  });
+
+  // El navegador puede restaurar el formulario tal como quedó antes de
+  // recargar (radios marcados, texto tipeado), incluso con
+  // autocomplete="off" en el <form> — eso solo evita el autocompletado de
+  // datos guardados, no la restauración de estado de la propia sesión de
+  // navegación. Forzamos que arranque siempre vacío.
+  form.reset();
+  // form.reset() no dispara 'change' en los radios, así que Menú y
+  // Mensaje no se ocultarían solos si el navegador los había mostrado.
+  syncConditionalFields();
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorEl.hidden = true;
@@ -200,7 +247,23 @@ function initRsvpForm() {
     const nombre = form.nombre.value.trim();
     const asistenciaInput = form.querySelector('input[name="asistencia"]:checked');
     const asistencia = asistenciaInput ? asistenciaInput.value : '';
+    const asiste = asistencia === 'Sí';
     const mensaje = form.mensaje.value.trim();
+
+    // Checkboxes no tienen una validación nativa de "al menos uno tildado
+    // dentro del grupo" (a diferencia de "required" en radios), así que la
+    // hacemos a mano acá, y solo si la persona confirmó que viene.
+    const menuChecked = Array.from(menuCheckboxes).filter((cb) => cb.checked);
+    if (asiste && menuChecked.length === 0) {
+      menuError.hidden = false;
+      menuError.previousElementSibling.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    menuError.hidden = true;
+
+    // "Menu" (sin tilde, coincide con el header de la hoja de SheetDB):
+    // varias opciones posibles, unidas por coma; "-" si no asiste.
+    const menu = asiste ? menuChecked.map((cb) => cb.value).join(', ') : '-';
 
     // Fecha en formato legible (ej: "7/9/2026 14:32") para identificar cuándo llegó cada respuesta.
     const fecha = new Date().toLocaleString('es-AR', {
@@ -226,6 +289,7 @@ function initRsvpForm() {
             Asistencia: asistencia,
             Mensaje: mensaje,
             Fecha: fecha,
+            Menu: menu,
           },
         }),
       });
@@ -237,6 +301,9 @@ function initRsvpForm() {
       // Éxito: reseteamos el formulario (para que ya esté vacío la próxima
       // vez que se muestre), lo ocultamos y mostramos el agradecimiento.
       form.reset();
+      // form.reset() no dispara 'change' en los radios, así que Menú y
+      // Mensaje no se ocultarían solos: lo forzamos a mano.
+      syncConditionalFields();
       form.hidden = true;
       successEl.hidden = false;
     } catch (err) {

@@ -591,6 +591,9 @@ section {
   .landing-gate.is-opening .landing-gate__curtain {
     opacity: 0;
   }
+  .rsvp-form__conditional {
+    transition: none;
+  }
 }
 
 /* ==========================================================================
@@ -1060,7 +1063,7 @@ section {
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.form-field__input:focus {
+.form-field__input:focus-visible {
   outline: none;
   border-color: var(--color-detalle);
   box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.3);
@@ -1070,6 +1073,32 @@ section {
   resize: vertical;
   min-height: 6rem;
   font-family: inherit;
+}
+
+select.form-field__input {
+  cursor: pointer;
+}
+
+/* Menú y Mensaje: ocultos por default, aparecen con una transición suave
+   cuando se marca "Sí, ahí voy a estar" (clase .is-visible via JS).
+   grid-template-rows 0fr → 1fr en vez de max-height: anima la altura real
+   del contenido sin necesitar un valor fijo en px (que se rompería si el
+   texto de alguna opción del <select> hace que el bloque cambie de alto). */
+.rsvp-form__conditional {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.4s ease, opacity 0.3s ease;
+}
+
+.rsvp-form__conditional.is-visible {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.rsvp-form__conditional-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .rsvp-form__radios {
@@ -1093,6 +1122,48 @@ section {
   height: 20px;
   accent-color: var(--color-detalle);
   cursor: pointer;
+}
+
+/* Mismo patrón visual que .rsvp-form__radios, pero en columna: con 5
+   opciones (algunas largas, como "Celíaco / Sin TACC") en fila se
+   apretaban o rompían mal el layout en mobile. */
+.rsvp-form__checkboxes {
+  display: flex;
+  flex-direction: column;
+}
+
+.rsvp-form__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0; /* agranda el área táctil sin agrandar el texto */
+  font-size: 0.95rem;
+  color: var(--color-texto);
+  cursor: pointer;
+}
+
+.rsvp-form__checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--color-detalle);
+  cursor: pointer;
+}
+
+.rsvp-form__checkbox input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.4);
+  border-radius: 0.2rem;
+}
+
+/* Aviso puntual de "elegí al menos una opción" — mismo tratamiento que
+   .rsvp-form__error (el de arriba, para errores de envío) pero sin el
+   recuadro con fondo, para que se sienta como parte del campo y no como
+   un error general del formulario. */
+.rsvp-form__field-error {
+  color: #9c4a3b;
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
 }
 
 .rsvp-form__submit {
@@ -1145,7 +1216,10 @@ section {
 }
 
 .site-footer__logo {
-  width: 70px;
+  /* clamp() en vez de un ancho fijo: en mobile (donde 8vw < 70px) se
+     queda en el mismo tamaño de siempre; recién crece pasado ~875px de
+     viewport, hasta un tope de 130px en pantallas grandes. */
+  width: clamp(70px, 8vw, 130px);
   height: auto;
   margin: 0 auto 1.5rem;
   border-radius: 50%;
@@ -1161,14 +1235,16 @@ section {
 .site-footer__text {
   font-family: var(--font-titulos);
   font-style: italic;
-  font-size: 1.15rem;
+  /* Mínimo (mobile) sin cambios; crece hasta 1.6rem en desktop. */
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
   color: var(--color-fondo);
-  max-width: 26rem;
+  max-width: 30rem;
   margin: 0 auto 0.75rem;
 }
 
 .site-footer__date {
-  font-size: 0.8rem;
+  /* Ídem: mismo tamaño de siempre en mobile, un poco más grande en desktop. */
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--color-detalle);
@@ -1191,7 +1267,10 @@ section {
   }
 
   .site-footer {
-    padding: 5rem 2rem;
+    /* Subido de 5rem a 7rem (vertical), igual que el padding que ya usan
+       las demás secciones en este mismo breakpoint — así el footer tiene
+       más presencia y no se ve chico comparado con el resto del sitio. */
+    padding: 7rem 2rem;
   }
 
   /* Solo el botón de la pantalla de bienvenida: no tocamos .btn (afectaría
@@ -1211,4 +1290,44 @@ section {
     padding: 0.9rem 1.5rem;
     font-size: 0.8rem;
   }
+}
+
+/* ==========================================================================
+   FOCO DE TECLADO (accesibilidad)
+   Estilo de foco propio para todo el sitio, en vez del outline azul por
+   defecto del navegador. Va al final del archivo a propósito: así, en la
+   cascada, gana por orden de aparición frente a cualquier :hover con su
+   propio box-shadow (botones, botón de música, etc.) cuando un elemento
+   está enfocado Y en hover al mismo tiempo (misma especificidad en ambos
+   casos, gana el que viene después en el CSS).
+
+   :focus-visible (no :focus a secas) para que el halo solo aparezca con
+   teclado/lectores de pantalla o foco programático (ej. el foco automático
+   al "Ingresar" de la pantalla de bienvenida) — no en cada click de mouse,
+   que es como ya se comporta el foco nativo del navegador.
+   ========================================================================== */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.4);
+}
+
+/* Los círculos (botón de música, cerrar del modal, copiar CBU/alias) ya
+   son redondos: un box-shadow cuadrado se ve raro ahí, así que el halo
+   también va redondo. */
+.music-toggle:focus-visible,
+.modal__close:focus-visible,
+.copy-btn:focus-visible {
+  border-radius: 50%;
+}
+
+/* Los radio buttons ya traen su propio foco nativo chico y pegado al
+   control; con box-shadow se ve mejor si además lo redondeamos. */
+.rsvp-form__radio input[type="radio"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.4);
+  border-radius: 50%;
 }
