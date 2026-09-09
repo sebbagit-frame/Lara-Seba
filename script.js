@@ -266,12 +266,10 @@ function initRsvpForm() {
 
 // ==========================================================================
 // MÚSICA DE FONDO
-// Los navegadores bloquean el autoplay con sonido, así que no podemos
-// arrancar la música al cargar la página. En cambio, esperamos la primera
-// interacción real del usuario (click, scroll, tecla o touch) en cualquier
-// parte de la página para intentar reproducirla — no hace falta que toque
-// el botón específicamente. A partir de ahí, el botón queda disponible
-// para mutear/activar manualmente cuando quiera.
+// El gesto que autoriza el audio ahora es el botón "Ingresar" de la
+// pantalla de bienvenida (ver initLandingGate) — ya no hace falta escuchar
+// la primera interacción en cualquier parte de la página. Acá solo queda
+// la sincronización del ícono del botón flotante y el loop del fragmento.
 // ==========================================================================
 function initBackgroundMusic() {
   const audio = document.getElementById('bg-audio');
@@ -320,21 +318,6 @@ function initBackgroundMusic() {
     }
   });
 
-  // Primera interacción del usuario en cualquier parte de la página.
-  // No incluye 'scroll': los navegadores no lo consideran un gesto válido
-  // para autorizar autoplay de audio, así que escucharlo no ayuda y solo
-  // suma inconsistencia (a veces "gasta" el { once: true } sin lograr
-  // reproducir nada).
-  const startOnFirstInteraction = () => {
-    tryPlay();
-    document.removeEventListener('click', startOnFirstInteraction);
-    document.removeEventListener('keydown', startOnFirstInteraction);
-    document.removeEventListener('touchstart', startOnFirstInteraction);
-  };
-  document.addEventListener('click', startOnFirstInteraction, { once: true, passive: true });
-  document.addEventListener('keydown', startOnFirstInteraction, { once: true });
-  document.addEventListener('touchstart', startOnFirstInteraction, { once: true, passive: true });
-
   // Toggle manual: reutiliza tryPlay() para el mismo manejo de errores.
   btn.addEventListener('click', () => {
     if (audio.paused) {
@@ -342,6 +325,82 @@ function initBackgroundMusic() {
     } else {
       audio.pause();
     }
+  });
+}
+
+// ==========================================================================
+// PANTALLA DE BIENVENIDA (landing gate)
+// Tapa todo el sitio al cargar. El único gesto que dispara el audio es el
+// click en "Ingresar" — es un click real del usuario, así que el navegador
+// lo autoriza sin bloqueos, a diferencia de un autoplay disparado por JS.
+// ==========================================================================
+function initLandingGate() {
+  const gate = document.getElementById('landing-gate');
+  const enterBtn = document.getElementById('landing-gate-enter');
+  const curtainLeft = gate ? gate.querySelector('.landing-gate__curtain--left') : null;
+  const curtainRight = gate ? gate.querySelector('.landing-gate__curtain--right') : null;
+  if (!gate || !enterBtn) return;
+
+  const audio = document.getElementById('bg-audio');
+
+  document.body.style.overflow = 'hidden';
+  enterBtn.focus();
+
+  enterBtn.addEventListener('click', () => {
+    // audio.play() se llama de forma síncrona, dentro del propio handler
+    // de click: así el navegador todavía lo reconoce como parte del gesto
+    // del usuario y no lo bloquea (si se llamara después, en un callback
+    // async o un setTimeout, dejaría de contar como gesto válido).
+    if (audio) {
+      audio.play().catch((err) => {
+        console.warn('No se pudo iniciar la música al ingresar:', err);
+      });
+    }
+
+    document.body.style.overflow = '';
+
+    // Devolvemos el foco al inicio del sitio (el hero), no lo dejamos
+    // "perdido" en un botón que está por desaparecer.
+    const hero = document.getElementById('inicio');
+    if (hero) {
+      hero.setAttribute('tabindex', '-1');
+      hero.focus();
+      hero.removeAttribute('tabindex');
+    }
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion || !curtainLeft || !curtainRight) {
+      // Fade simple de siempre, sin cortina: la clase .is-hidden anima
+      // solo la opacidad de todo el gate en 0.6s (ver CSS).
+      gate.classList.add('is-hidden');
+      gate.addEventListener('transitionend', () => {
+        gate.hidden = true;
+      }, { once: true });
+      return;
+    }
+
+    // Efecto de cortina: .is-opening dispara en simultáneo el
+    // deslizamiento de las dos mitades (0.75s) y el fade del contenido
+    // (logo/nombres/fecha en el mismo tiempo; el botón, más rápido y por
+    // separado, ver CSS de .landing-gate__enter).
+    gate.classList.add('is-opening');
+
+    // Esperamos el transitionend de "transform" en LAS DOS mitades antes
+    // de ocultar el gate del todo — si esperáramos solo una, podríamos
+    // ocultarlo un instante antes de que la otra termine de deslizarse.
+    let halvesFinished = 0;
+    const onCurtainEnd = (event) => {
+      if (event.propertyName !== 'transform') return;
+      halvesFinished += 1;
+      if (halvesFinished >= 2) {
+        curtainLeft.removeEventListener('transitionend', onCurtainEnd);
+        curtainRight.removeEventListener('transitionend', onCurtainEnd);
+        gate.hidden = true;
+      }
+    };
+    curtainLeft.addEventListener('transitionend', onCurtainEnd);
+    curtainRight.addEventListener('transitionend', onCurtainEnd);
   });
 }
 
@@ -354,4 +413,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initGiftsModal();
   initRsvpForm();
   initBackgroundMusic();
+  initLandingGate();
 });

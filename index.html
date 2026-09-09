@@ -38,6 +38,35 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- ===== PANTALLA DE BIENVENIDA ===== -->
+  <!-- Tapa toda la página al cargar (position: fixed, ver styles.css). El
+       click en "Ingresar" (script.js, initLandingGate) es el único gesto
+       que dispara la música de fondo. -->
+  <div class="landing-gate" id="landing-gate" role="dialog" aria-modal="true" aria-label="Bienvenida">
+    <!-- Las dos mitades de la "cortina": dan el fondo sólido y se
+         deslizan a los costados al entrar. El contenido real (logo,
+         nombres, fecha, botón) es una única capa aparte, arriba de las
+         dos mitades, que se desvanece en sincro con ellas — así no hace
+         falta duplicar el logo/texto para que cada mitad "muestre su
+         parte", que sería mucho más frágil de mantener responsive. -->
+    <div class="landing-gate__curtain landing-gate__curtain--left" aria-hidden="true"></div>
+    <div class="landing-gate__curtain landing-gate__curtain--right" aria-hidden="true"></div>
+
+    <div class="landing-gate__content">
+      <img
+        src="assets/logos/L_S_logo-removebg-preview.png"
+        alt=""
+        aria-hidden="true"
+        class="landing-gate__logo"
+        width="120">
+      <p class="landing-gate__names">Lara &amp; Seba</p>
+      <p class="landing-gate__date">6 de Marzo de 2027</p>
+      <button type="button" class="btn btn--solid landing-gate__enter" id="landing-gate-enter">
+        Ingresar
+      </button>
+    </div>
+  </div>
+
   <audio id="bg-audio" src="assets/audio/cancion.mp3" preload="none"></audio>
 
   <button
@@ -122,25 +151,25 @@
       <p class="section__kicker reveal">Cuándo y dónde</p>
       <h2 class="section__title reveal">Detalles del evento</h2>
       <p class="section__text reveal">
-        La ceremonia y la fiesta se realizan en el mismo lugar, ¡así que no hay que moverse!
+        La ceremonia y la fiesta se realizan en el mismo lugar, ¡así que no hay que moverse!. Lo que si, te pedimos PUNTUALIDAD.
       </p>
 
-      <div class="details__cards">
-        <div class="details__card reveal">
-          <span class="details__icon">💍</span>
-          <h3 class="details__card-title">Ceremonia</h3>
-          <p class="details__time">12:00 hs</p>
-          <p class="details__place">Clahe Eventos</p>
-          <p class="details__address">Centenario Uruguayo 1175<br>B1824 Lanús, Provincia de Buenos Aires</p>
+      <div class="details__card reveal">
+        <span class="details__icon">💍</span>
+
+        <div class="details__split">
+          <div class="details__split-item">
+            <h3 class="details__card-title">Ceremonia</h3>
+            <p class="details__time">12:00 hs</p>
+          </div>
+          <div class="details__split-item">
+            <h3 class="details__card-title">Fiesta</h3>
+            <p class="details__time">A continuación de la ceremonia</p>
+          </div>
         </div>
 
-        <div class="details__card reveal">
-          <span class="details__icon">🥂</span>
-          <h3 class="details__card-title">Fiesta</h3>
-          <p class="details__time">A continuación de la ceremonia</p>
-          <p class="details__place">Clahe Eventos</p>
-          <p class="details__address">Centenario Uruguayo 1175<br>B1824 Lanús, Provincia de Buenos Aires</p>
-        </div>
+        <p class="details__place">Clahe Eventos</p>
+        <p class="details__address">Centenario Uruguayo 1175<br>B1824 Lanús, Provincia de Buenos Aires</p>
       </div>
 
       <div class="details__map reveal">
@@ -275,7 +304,7 @@
         </div>
       </div>
 
-      <p class="modal__meta">Titular: SEBASTIAN ALEXIS,MASTRANGELO<br>Banco: Cuenta DNI</p>
+      <p class="modal__meta">Titular: SEBASTIAN ALEXIS,MASTRANGELO<br>Banco: Banco Provincia</p>
 
       <button type="button" class="btn btn--solid modal__close-full" id="gifts-close-btn-full">Cerrar</button>
     </div>

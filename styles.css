@@ -69,6 +69,132 @@ section {
 }
 
 /* ==========================================================================
+   PANTALLA DE BIENVENIDA (landing gate)
+   z-index por encima de todo lo demás del sitio, modal de Regalos (100) y
+   botón de música (40) incluidos: mientras está visible, tapa la página
+   entera y nada de atrás debería quedar accesible ni por encima.
+   ========================================================================== */
+.landing-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  overflow: hidden; /* contiene las dos mitades mientras se deslizan afuera */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Ya no tiene su propio fondo ni padding: el fondo lo dan las dos
+     mitades de abajo (así queda a pantalla completa, sin el hueco que
+     dejaría el padding), y el padding del contenido se movió a
+     .landing-gate__content. */
+}
+
+/* Fallback para prefers-reduced-motion: el fade simple de siempre en vez
+   de la cortina (ver JS — initLandingGate elige una clase u otra según
+   matchMedia). Nada se desliza, así que no hay movimiento que reducir. */
+.landing-gate.is-hidden {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.landing-gate[hidden] {
+  display: none;
+}
+
+/* Las dos mitades de la cortina: juntas forman el fondo sólido de toda
+   la pantalla (mismo color que tenía antes .landing-gate). Usan % para
+   el ancho y el desplazamiento, así el efecto se adapta a cualquier
+   viewport sin depender de un valor fijo en px. */
+.landing-gate__curtain {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background-color: var(--color-fondo);
+  transform: translateX(0);
+  transition: transform 0.75s ease-out;
+}
+
+.landing-gate__curtain--left {
+  left: 0;
+}
+
+.landing-gate__curtain--right {
+  right: 0;
+}
+
+.landing-gate.is-opening .landing-gate__curtain--left {
+  transform: translateX(-100%);
+}
+
+.landing-gate.is-opening .landing-gate__curtain--right {
+  transform: translateX(100%);
+}
+
+.landing-gate__content {
+  /* position: relative (en vez de estático) para que quede pintado por
+     encima de las dos mitades de la cortina, que son position: absolute:
+     sin esto, los elementos posicionados siempre se pintan por encima de
+     los que no lo están, sin importar el orden en el HTML. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.5rem;
+  /* Se desvanece en sincro con la cortina (misma duración/easing) — el
+     botón, adentro, tiene su propio fade más corto y se nota primero. */
+  transition: opacity 0.75s ease-out;
+}
+
+.landing-gate.is-opening .landing-gate__content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.landing-gate__logo {
+  /* clamp() en vez de un ancho fijo: en mobile (donde 14vw < 120px) se
+     queda en el mismo tamaño de siempre; recién crece pasado ~860px de
+     viewport, hasta un tope de 200px en pantallas grandes. */
+  width: clamp(120px, 14vw, 200px);
+  height: auto;
+  margin-bottom: 1.5rem;
+}
+
+.landing-gate__names {
+  font-family: var(--font-titulos);
+  /* Tope subido de 2.25rem a 3.5rem: antes se topeaba a partir de ~720px
+     de ancho, así que en la mayoría de las notebooks/monitores ya no
+     crecía más. El mínimo (1.5rem) no cambia, así que en mobile se ve
+     igual que antes. */
+  font-size: clamp(1.5rem, 6vw, 3.5rem);
+  color: var(--color-texto);
+  margin-bottom: 0.5rem;
+}
+
+.landing-gate__date {
+  /* clamp() en vez de un tamaño fijo, mismo criterio que el resto: se
+     mantiene igual en mobile y crece un poco en desktop. */
+  font-size: clamp(0.8rem, 1.4vw, 1.05rem);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-texto-claro);
+  margin-bottom: 2.5rem;
+}
+
+.landing-gate__enter {
+  display: inline-block;
+  /* Redefine la transición del .btn base (que es "all 0.6s", pensada para
+     el hover) en vez de heredarla, para que el fade de salida sea propio
+     y más corto (0.3s) sin tocar cómo se comporta el hover del botón. */
+  transition: transform var(--transition-suave), box-shadow var(--transition-suave), opacity 0.3s ease;
+}
+
+.landing-gate.is-opening .landing-gate__enter {
+  opacity: 0;
+}
+
+/* ==========================================================================
    BOTÓN DE MÚSICA DE FONDO
    Flotante y fijo arriba a la izquierda, por encima de todo el contenido
    (menos el modal de Regalos, que lo tapa mientras está abierto).
@@ -452,6 +578,19 @@ section {
   .music-toggle:hover {
     transform: none;
   }
+  /* JS ya elige .is-hidden (fade simple) en vez de .is-opening (cortina)
+     cuando hay prefers-reduced-motion, pero además anulamos acá el
+     movimiento por si alguna vez se dispara .is-opening igual: sin
+     transform, las mitades no se deslizan aunque la clase esté puesta. */
+  .landing-gate__curtain,
+  .landing-gate__content,
+  .landing-gate__enter {
+    transition: opacity 0.3s ease;
+    transform: none !important;
+  }
+  .landing-gate.is-opening .landing-gate__curtain {
+    opacity: 0;
+  }
 }
 
 /* ==========================================================================
@@ -500,18 +639,12 @@ section {
   background-color: var(--color-fondo-secundario);
 }
 
-.details__cards {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-  margin-bottom: 3rem;
-}
-
 .details__card {
   background: var(--color-fondo);
   border: 1px solid var(--color-acento);
   border-radius: 0.5rem;
   padding: 2.25rem 1.5rem;
+  margin-bottom: 3rem; /* antes vivía en el wrapper .details__cards, con dos tarjetas */
   text-align: center;
 }
 
@@ -519,6 +652,33 @@ section {
   font-size: 1.75rem;
   display: block;
   margin-bottom: 0.75rem;
+}
+
+/* Ceremonia / Fiesta lado a lado (desktop) o apiladas (mobile), dentro de
+   la misma tarjeta ya que ambas son en el mismo lugar. */
+.details__split {
+  display: flex;
+  flex-direction: column;
+  margin: 0.5rem 0 1.5rem;
+}
+
+.details__split-item {
+  padding: 1rem 0;
+}
+
+.details__split-item:first-child {
+  padding-top: 0;
+}
+
+.details__split-item:last-child {
+  padding-bottom: 0;
+}
+
+/* Línea divisoria sutil solo entre los dos bloques (nunca antes del
+   primero ni después del último). rgba tomado de --color-detalle
+   (#d4a373 → 212,163,115) con opacidad baja: no queremos un borde marcado. */
+.details__split-item + .details__split-item {
+  border-top: 1px solid rgba(212, 163, 115, 0.35);
 }
 
 .details__card-title {
@@ -534,7 +694,6 @@ section {
   color: var(--color-detalle);
   text-transform: uppercase;
   font-size: 0.85rem;
-  margin-bottom: 1rem;
 }
 
 .details__place {
@@ -566,8 +725,28 @@ section {
 }
 
 @media (min-width: 700px) {
-  .details__cards {
-    grid-template-columns: 1fr 1fr;
+  .details__split {
+    flex-direction: row;
+  }
+
+  .details__split-item {
+    flex: 1;
+    padding: 0 1.5rem;
+  }
+
+  .details__split-item:first-child {
+    padding-left: 0;
+  }
+
+  .details__split-item:last-child {
+    padding-right: 0;
+  }
+
+  /* La misma línea divisoria pasa de horizontal (mobile, arriba) a
+     vertical (desktop, al costado) sin duplicar la regla del selector. */
+  .details__split-item + .details__split-item {
+    border-top: none;
+    border-left: 1px solid rgba(212, 163, 115, 0.35);
   }
 }
 
@@ -970,13 +1149,11 @@ section {
   height: auto;
   margin: 0 auto 1.5rem;
   border-radius: 50%;
-  /* El logo es un JPEG con fondo crema sólido (no transparente: JPEG no
-     admite canal alfa). En vez de dejar que se note como un cuadrado claro
-     sobre el fondo oscuro, lo recortamos en círculo y le sumamos un borde +
-     sombra sutil, para que ese fondo se vea como una especie de medallón
-     intencional en vez de un error. Si en algún momento conseguís una
-     versión con transparencia real (PNG/WebP), se puede sacar todo esto y
-     que el logo flote libre sobre el fondo oscuro. */
+  /* Este logo es el JPEG con fondo crema sólido (no transparente): el PNG
+     con transparencia real que probamos quedaba con muy poco contraste
+     acá, porque su tinta es un verde salvia parecido a --color-texto (el
+     fondo oscuro del footer). Recortado en círculo con borde + sombra se
+     lee como un medallón intencional en vez de un cuadrado pegado. */
   border: 3px solid var(--color-fondo);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
@@ -1015,6 +1192,13 @@ section {
 
   .site-footer {
     padding: 5rem 2rem;
+  }
+
+  /* Solo el botón de la pantalla de bienvenida: no tocamos .btn (afectaría
+     a todos los botones del sitio), le sumamos padding puntual acá para
+     que no quede chico al lado del logo/título ya agrandados arriba. */
+  .landing-gate__enter {
+    padding: 1.15rem 2.75rem;
   }
 }
 
