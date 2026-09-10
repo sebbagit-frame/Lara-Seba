@@ -366,6 +366,23 @@ function initBackgroundMusic() {
     });
   }
 
+  // Media Session API: en iOS, el audio se trata como una sesión de medios
+  // del sistema (aparece en la pantalla de bloqueo / centro de control) en
+  // vez de un elemento cualquiera de la página — por eso un audio.pause()
+  // llamado desde JS en pagehide/visibilitychange no siempre alcanza ahí.
+  // Declarar la sesión (con metadata + un actionHandler de 'pause' real)
+  // le da al sistema operativo una forma "oficial" de pausarla, y a
+  // nosotros la posibilidad de reforzar el estado hacia afuera.
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: 'Música de fondo',
+      artist: 'Lara & Seba',
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      audio.pause();
+    });
+  }
+
   // Arranca siempre en FRAGMENT_START, sea la primera vez que suena o una
   // repetición manual (botón) después de haber estado pausada.
   audio.addEventListener('play', () => {
@@ -401,6 +418,12 @@ function initBackgroundMusic() {
   // antes de cortarse solo.
   window.addEventListener('pagehide', () => {
     audio.pause();
+    // Además del pause() del elemento, le avisamos directo a la sesión de
+    // medios del sistema que se detuvo — en iOS es la que manda, y a
+    // veces no se entera solo con que el <audio> pase a paused.
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'paused';
+    }
   });
 
   // 'pagehide' no cubre bloquear la pantalla del celular: ahí la página
@@ -412,6 +435,9 @@ function initBackgroundMusic() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       audio.pause();
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
     }
   });
 }
