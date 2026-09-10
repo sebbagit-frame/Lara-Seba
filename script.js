@@ -396,11 +396,23 @@ function initBackgroundMusic() {
 
   // Al cerrar la pestaña el audio ya se corta solo (el navegador destruye
   // la página), pero 'pagehide' además cubre los casos donde no hay un
-  // cierre "limpio": cambiar de pestaña o app en el celular, bloquear la
-  // pantalla, navegar a otra página — ahí el audio podía seguir sonando
-  // unos segundos de más (sobre todo en mobile) antes de cortarse solo.
+  // cierre "limpio": cambiar de pestaña o app en el celular, navegar a
+  // otra página — ahí el audio podía seguir sonando unos segundos de más
+  // antes de cortarse solo.
   window.addEventListener('pagehide', () => {
     audio.pause();
+  });
+
+  // 'pagehide' no cubre bloquear la pantalla del celular: ahí la página
+  // sigue "viva" (no se descarga), solo queda oculta, así que el audio
+  // seguía sonando. 'visibilitychange' + document.hidden sí detecta ese
+  // caso específico (y también minimizar o cambiar de pestaña/app, que ya
+  // cubría pagehide — se solapan a propósito, no hace daño pausar dos
+  // veces un audio que ya está pausado).
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      audio.pause();
+    }
   });
 }
 
