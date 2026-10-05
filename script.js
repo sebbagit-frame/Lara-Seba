@@ -200,6 +200,7 @@ function initRsvpForm() {
   const menuCheckboxes = form.querySelectorAll('input[name="menu"]');
   const menuTradicional = document.getElementById('rsvp-menu-tradicional');
   const menuError = document.getElementById('rsvp-menu-error');
+  const cancionInput = document.getElementById('rsvp-cancion');
 
   function syncConditionalFields() {
     const checked = form.querySelector('input[name="asistencia"]:checked');
@@ -207,6 +208,9 @@ function initRsvpForm() {
     conditionalFields.classList.toggle('is-visible', asiste);
     if (!asiste) {
       menuError.hidden = true;
+      // Igual que Menú/Mensaje: si se pasa a "No", limpiamos lo que haya
+      // quedado cargado acá, no solo lo ocultamos.
+      cancionInput.value = '';
     }
   }
 
@@ -264,6 +268,8 @@ function initRsvpForm() {
     // "Menu" (sin tilde, coincide con el header de la hoja de SheetDB):
     // varias opciones posibles, unidas por coma; "-" si no asiste.
     const menu = asiste ? menuChecked.map((cb) => cb.value).join(', ') : '-';
+    // "Cancion" (sin tilde, ídem): opcional, "-" si no asiste o si quedó vacío.
+    const cancion = asiste ? (cancionInput.value.trim() || '-') : '-';
 
     // Fecha en formato legible (ej: "7/9/2026 14:32") para identificar cuándo llegó cada respuesta.
     const fecha = new Date().toLocaleString('es-AR', {
@@ -287,9 +293,10 @@ function initRsvpForm() {
           data: {
             Nombre: nombre,
             Asistencia: asistencia,
+            Menu: menu,
+            Cancion: cancion,
             Mensaje: mensaje,
             Fecha: fecha,
-            Menu: menu,
           },
         }),
       });

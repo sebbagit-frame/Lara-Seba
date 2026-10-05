@@ -835,18 +835,44 @@ section {
   margin-bottom: 2rem;
 }
 
+/* max-width calculado para que entren justo 4 columnas de 3.6rem con
+   0.55rem de gap (4*3.6 + 3*0.55 = 16.05rem) y envuelvan a la 5ta — fijo
+   a propósito (no depende de breakpoints) para que sean "4 por fila" por
+   igual en mobile y en desktop, con margen de sobra incluso a 320px. */
 .dresscode__swatches {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 1rem;
-  margin-bottom: 2.5rem;
+  gap: 0.55rem;
+  max-width: 16.05rem;
+  margin: 0 auto 2.5rem;
+}
+
+.dresscode__swatch-item {
+  width: 3.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .dresscode__swatch {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
+  /* Borde fino para que los tonos pasteles (rosa/amarillo bebé) no se
+     pierdan contra --color-fondo, que es un crema muy claro. */
+  border: 1px solid rgba(63, 58, 52, 0.25);
   box-shadow: 0 2px 6px rgba(63, 58, 52, 0.15);
+}
+
+.dresscode__swatch-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.3;
+  color: var(--color-texto-claro);
 }
 
 .dresscode__notice {
