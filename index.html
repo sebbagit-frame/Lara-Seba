@@ -65,6 +65,7 @@
       <button type="button" class="btn btn--solid landing-gate__enter" id="landing-gate-enter">
         Ingresar
       </button>
+      <p class="landing-gate__hint">Leé toda la invitación con atención: ahí está todo lo que necesitás saber.</p>
     </div>
   </div>
 
@@ -121,8 +122,11 @@
       </div>
     </div>
 
-    <a href="#invitamos" class="hero__scroll" aria-label="Bajar a la siguiente sección">
-      <span></span>
+    <a href="#invitamos" class="hero__scroll" id="hero-scroll" aria-label="Bajar a la siguiente sección">
+      <span class="hero__scroll-text">Deslizá hacia abajo</span>
+      <svg class="hero__scroll-arrow" viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
     </a>
   </header>
 
@@ -291,7 +295,7 @@
       <p class="section__kicker reveal">Un gesto opcional</p>
       <h2 class="section__title reveal">Regalos</h2>
       <p class="section__text reveal">
-        Tu compañía es el regalo principal. Si querés tener un detalle extra con nosotros, te dejamos nuestros datos.
+        Tu compañía es el regalo principal. Si querés tener un detalle extra con nosotros, te dejamos nuestros datos. También habrá un cofre de regalos en el salón para quienes lo prefieran
       </p>
 
       <button type="button" class="btn btn--outline-dark gifts__trigger reveal" id="gifts-open-btn" aria-haspopup="dialog" aria-controls="gifts-modal">
@@ -376,6 +380,10 @@
       <p class="section__text reveal">
         Necesitamos que nos confirmes si vas a poder acompañarnos, para organizar todo con tiempo.
       </p>
+
+      <div class="rsvp-reminder reveal">
+        <p>Antes de confirmar, asegurate de haber leído toda la invitación: lugar, horario, dress code y demás detalles.</p>
+      </div>
 
       <form class="rsvp-form reveal" id="rsvp-form" autocomplete="off">
         <div class="form-field">

@@ -194,6 +194,14 @@ section {
   opacity: 0;
 }
 
+.landing-gate__hint {
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--color-texto-claro);
+  max-width: 22rem;
+  margin-top: 1rem;
+}
+
 /* ==========================================================================
    BOTÓN DE MÚSICA DE FONDO
    Flotante y fijo arriba a la izquierda, por encima de todo el contenido
@@ -496,35 +504,59 @@ section {
   margin-top: 0.25rem;
 }
 
-/* Flecha de scroll
-   El visual es una línea fina de 1px, pero el área táctil real (el <a>)
-   se agranda a 44x44px para que sea fácil de tocar en celulares. */
+/* Cartel "Deslizá hacia abajo" + flecha.
+   El área táctil real del <a> es de al menos 44x44px (ancho fijo mínimo,
+   alto por padding), aunque el contenido visual sea más chico — pensado
+   para invitados mayores, junto con el texto explícito en vez de depender
+   de que se entienda una flechita sola. Se desvanece con el scroll (JS,
+   initHeroScrollCue) y vuelve a aparecer al volver arriba del todo. */
 .hero__scroll {
   position: absolute;
-  bottom: 1rem;
+  bottom: 1.25rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1;
-  width: 44px;
-  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding-bottom: 0.5rem;
+  gap: 0.35rem;
+  /* Pastilla sutil: separa el cartel de la foto de fondo sin tapar
+     countdown/texto de arriba (es un fondo, no agrega altura extra al
+     bloque centrado del hero). */
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  background: rgba(63, 58, 52, 0.45);
+  color: var(--color-fondo);
+  text-align: center;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.3s ease;
 }
 
-.hero__scroll span {
-  display: block;
-  width: 1px;
-  height: 2.5rem;
-  background: var(--color-detalle);
-  position: relative;
-  animation: scrollPulse 2s ease-in-out infinite;
+.hero__scroll.is-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
-@keyframes scrollPulse {
-  0%, 100% { opacity: 0.3; transform: scaleY(0.7); transform-origin: top; }
-  50% { opacity: 1; transform: scaleY(1); transform-origin: top; }
+.hero__scroll-text {
+  font-size: clamp(0.95rem, 2.4vw, 1.25rem);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hero__scroll-arrow {
+  width: 34px;
+  height: 34px;
+  animation: scrollBounce 1.6s ease-in-out infinite;
+}
+
+@keyframes scrollBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
 }
 
 /* ==========================================================================
@@ -562,7 +594,7 @@ section {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .reveal, .hero .reveal, .hero__scroll span {
+  .reveal, .hero .reveal, .hero__scroll-arrow {
     animation: none !important;
     transition: none !important;
     opacity: 1 !important;
@@ -1102,6 +1134,25 @@ section {
   color: var(--color-texto-claro);
   margin-top: -0.5rem;
   margin-bottom: 1rem;
+}
+
+.rsvp-reminder {
+  /* --color-fondo (no -secundario): la sección .rsvp ya usa
+     --color-fondo-secundario de fondo, así que este es el tono que
+     contrasta contra ella — mismo criterio que .dresscode__notice o
+     .gift-field en sus respectivas secciones. */
+  background: var(--color-fondo);
+  border: 1px solid var(--color-acento);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  max-width: 28rem;
+  margin: 0 auto 2rem;
+}
+
+.rsvp-reminder p {
+  font-size: 0.85rem;
+  color: var(--color-texto);
+  margin: 0;
 }
 
 /* ==========================================================================

@@ -97,6 +97,24 @@ function initScrollReveal() {
 }
 
 // ==========================================================================
+// CARTEL "DESLIZÁ HACIA ABAJO" DEL HERO
+// Se desvanece pasados ~80px de scroll y reaparece si se vuelve al tope.
+// ==========================================================================
+function initHeroScrollCue() {
+  const scrollCue = document.getElementById('hero-scroll');
+  if (!scrollCue) return;
+
+  const HIDE_AFTER_PX = 80;
+
+  function updateVisibility() {
+    scrollCue.classList.toggle('is-hidden', window.scrollY > HIDE_AFTER_PX);
+  }
+
+  updateVisibility();
+  window.addEventListener('scroll', updateVisibility, { passive: true });
+}
+
+// ==========================================================================
 // MODAL DE REGALOS
 // ==========================================================================
 function initGiftsModal() {
@@ -595,6 +613,7 @@ function initLandingGate() {
 document.addEventListener('DOMContentLoaded', () => {
   initCountdown();
   initScrollReveal();
+  initHeroScrollCue();
   initGiftsModal();
   initRsvpForm();
   initBackgroundMusic();
