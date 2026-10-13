@@ -195,11 +195,11 @@ section {
 }
 
 .landing-gate__hint {
-  font-size: 0.75rem;
+  font-size: clamp(0.8rem, 3.2vw, 0.95rem);
   font-style: italic;
   color: var(--color-texto-claro);
   max-width: 22rem;
-  margin-top: 1rem;
+  margin-top: 1.25rem;
 }
 
 /* ==========================================================================
@@ -512,8 +512,12 @@ section {
    initHeroScrollCue) y vuelve a aparecer al volver arriba del todo. */
 .hero__scroll {
   position: absolute;
-  bottom: 1.25rem; /* fallback si el navegador no soporta env() */
-  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  /* 5rem: bastante más arriba que el borde inferior del hero, para que
+     quede claramente por encima del separador de anillos que se apoya
+     sobre ese borde (ver .section-divider) — con margen de sobra sobre
+     el 1rem mínimo de aire pedido. */
+  bottom: 5rem; /* fallback si el navegador no soporta env() */
+  bottom: calc(5rem + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1;
@@ -526,14 +530,12 @@ section {
   gap: 0.35rem;
   /* Pastilla sutil: separa el cartel de la foto de fondo sin tapar
      countdown/texto de arriba (es un fondo, no agrega altura extra al
-     bloque centrado del hero).
-     border-radius moderado (no 999px): con el texto en una sola línea ya
-     se ve como pastilla redondeada, y si el texto envuelve a dos líneas
-     en pantallas angostas no queda una forma rara y estirada. */
+     bloque centrado del hero). */
   padding: 0.6rem 1.1rem;
   border-radius: 1.25rem;
-  background: rgba(63, 58, 52, 0.45);
+  background: rgba(63, 58, 52, 0.55);
   color: var(--color-fondo);
+  opacity: 1;
   text-align: center;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   transition: opacity 0.3s ease;
@@ -549,12 +551,11 @@ section {
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  /* Sin nowrap: si no entra en una línea, envuelve a dos, centrado por el
-     text-align: center heredado de .hero__scroll. En 320-480px el texto
-     entra cómodo en una sola línea (~210-220px); el max-width es sobre
-     todo una red de seguridad para zoom de accesibilidad o pantallas
-     fuera de lo común, no algo pensado para activarse siempre. */
-  max-width: 16rem;
+  /* Una sola línea siempre: nada de max-width que fuerce el corte. Si no
+     entrara en 320px, se achica el font-size en el media query de abajo
+     en vez de dejarlo partirse en dos líneas. */
+  white-space: nowrap;
+  width: max-content;
 }
 
 .hero__scroll-arrow {
@@ -1448,16 +1449,24 @@ select.form-field__input {
     font-size: 0.8rem;
   }
 
-  /* Pastilla y flecha un poco más chicas en los celulares más angostos. */
+  /* Pastilla y flecha un poco más chicas en los celulares más angostos.
+     El "bottom" queda igual que en la regla base (5rem + safe-area): acá
+     solo achicamos tamaño, no posición. */
   .hero__scroll {
-    bottom: 0.85rem;
-    bottom: calc(0.85rem + env(safe-area-inset-bottom));
     padding: 0.5rem 0.85rem;
   }
 
   .hero__scroll-arrow {
     width: 27px;
     height: 27px;
+  }
+
+  /* Red de seguridad: si en 320px el texto no entrara en una línea con
+     el tamaño normal, se achica acá en vez de permitir el corte
+     (.hero__scroll-text tiene white-space: nowrap, nunca se parte). */
+  .hero__scroll-text {
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
   }
 }
 
