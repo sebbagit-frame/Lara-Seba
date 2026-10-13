@@ -192,6 +192,55 @@ function initRsvpForm() {
   const successEl = document.getElementById('rsvp-success');
   const againBtn = document.getElementById('rsvp-again-btn');
   const submitBtnDefaultText = submitBtn.textContent;
+  // Guardamos el texto original del error genérico: más abajo reutilizamos
+  // el mismo elemento también para el aviso de "ya respondiste", así que
+  // hay que poder volver a este texto en vez de dejar pegado el otro.
+  const errorElDefaultText = errorEl.textContent;
+  const DUPLICATE_MESSAGE = 'El invitado/a ingresado ya realizó este formulario. Si necesitás modificar tu respuesta, escribinos.';
+
+  // Saca tildes/diacríticos (á, é, ñ̃ con virgulilla duplicada, etc.) pero
+  // conserva la ñ como letra propia: la reemplazamos por un carácter de
+  // área privada (no se descompone con NFD) antes de sacar los acentos, y
+  // la restituimos después. Así "ñ" no se convierte en "n" junto con el
+  // resto de los diacríticos.
+  function stripAccents(str) {
+    return str
+      .replace(/ñ/g, '')
+      .replace(/Ñ/g, '')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(//g, 'ñ')
+      .replace(//g, 'Ñ');
+  }
+
+  // "juan   pérez" -> "Juan Perez": recorta, colapsa espacios múltiples,
+  // saca tildes (pedimos escribir sin tildes, pero por si alguien las
+  // tipea igual) y deja Mayúscula inicial por palabra. Se usa tanto para
+  // lo que se manda a SheetDB como para la consulta de duplicados, así
+  // "Juan Pérez" y "juan  perez" (sic) se reconocen como el mismo nombre.
+  function normalizeName(rawName) {
+    return stripAccents(rawName.trim().replace(/\s+/g, ' '))
+      .toLowerCase()
+      .split(' ')
+      .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
+      .join(' ');
+  }
+
+  // Busca en SheetDB si ya hay una fila con este nombre. Si la consulta
+  // falla (sin internet, SheetDB caído, etc.) devolvemos false: un error
+  // de red acá no debe bloquear el envío de nadie.
+  async function isNameAlreadyRegistered(name) {
+    try {
+      const searchUrl = `${SHEETDB_URL}/search?Nombre=${encodeURIComponent(name)}&casesensitive=false`;
+      const response = await fetch(searchUrl);
+      if (!response.ok) return false;
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length > 0;
+    } catch (err) {
+      console.warn('No se pudo verificar si el invitado ya respondió (se deja enviar igual):', err);
+      return false;
+    }
+  }
 
   // Menú y Mensaje solo aplican si la persona va a venir: el radio
   // "asistencia" controla si ese bloque se ve (con transición).
@@ -248,7 +297,7 @@ function initRsvpForm() {
     e.preventDefault();
     errorEl.hidden = true;
 
-    const nombre = form.nombre.value.trim();
+    const nombre = normalizeName(form.nombre.value);
     const asistenciaInput = form.querySelector('input[name="asistencia"]:checked');
     const asistencia = asistenciaInput ? asistenciaInput.value : '';
     const asiste = asistencia === 'Sí';
@@ -282,6 +331,18 @@ function initRsvpForm() {
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Enviando...';
+
+    // Antes de mandar nada, nos fijamos si este nombre ya respondió. Sigue
+    // mostrando "Enviando..." durante esta consulta: para quien completa
+    // el formulario es parte del mismo envío, no un paso aparte.
+    const yaRespondio = await isNameAlreadyRegistered(nombre);
+    if (yaRespondio) {
+      errorEl.textContent = DUPLICATE_MESSAGE;
+      errorEl.hidden = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitBtnDefaultText;
+      return;
+    }
 
     try {
       const response = await fetch(SHEETDB_URL, {
@@ -317,6 +378,9 @@ function initRsvpForm() {
       // Error de red o de la API: mostramos el aviso y dejamos el formulario
       // intacto (con todo lo que la persona ya completó) para que reintente.
       console.error('Error al enviar el RSVP:', err);
+      // Por si justo antes se había mostrado el aviso de duplicado en este
+      // mismo elemento: volvemos a su texto genérico.
+      errorEl.textContent = errorElDefaultText;
       errorEl.hidden = false;
       submitBtn.disabled = false;
       submitBtn.textContent = submitBtnDefaultText;
