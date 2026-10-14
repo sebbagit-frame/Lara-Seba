@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Admin RSVP | Lara &amp; Seba</title>
+  <!--
+    Panel de administración del RSVP. Es público (se publica con el sitio),
+    pero no expone nada: para ver o borrar respuestas hay que entrar con una
+    cuenta de Google que esté en la colección "admins" de Firestore (ver
+    firestore.rules). Cualquier otra cuenta ve "Sin acceso".
+  -->
+  <style>
+    :root {
+      --color-fondo: #f7f3ec;
+      --color-fondo-secundario: #efeae0;
+      --color-texto: #5b6248;
+      --color-texto-claro: #616b4e;
+      --color-texto-boton: #262b1d;
+      --color-detalle: #d4a373;
+      --color-detalle-oscuro: #b48a62;
+      --color-error: #9c4a3b;
+      --font-titulos: Georgia, 'Times New Roman', serif;
+      --font-texto: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+
+    body {
+      font-family: var(--font-texto);
+      background: var(--color-fondo);
+      color: var(--color-texto);
+      line-height: 1.5;
+      padding: 1.5rem 1rem 3rem;
+    }
+
+    .wrap { max-width: 1100px; margin: 0 auto; }
+
+    h1 {
+      font-family: var(--font-titulos);
+      font-weight: 500;
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+    }
+
+    .subtitle { font-size: 0.85rem; color: var(--color-texto-claro); }
+
+    /* Botones */
+    button {
+      font: inherit;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.7rem 1.3rem;
+      min-height: 44px;
+      border-radius: 999px;
+      border: 1.5px solid var(--color-detalle);
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .btn-solid { background: var(--color-detalle); color: var(--color-texto-boton); }
+    .btn-solid:hover { background: var(--color-detalle-oscuro); border-color: var(--color-detalle-oscuro); }
+    .btn-outline { background: transparent; color: var(--color-texto); border-color: var(--color-texto); }
+    .btn-outline:hover { background: var(--color-texto); color: var(--color-fondo); }
+    .btn-link {
+      background: none;
+      border: none;
+      padding: 0.5rem 0.25rem;
+      min-height: 0;
+      text-transform: none;
+      letter-spacing: normal;
+      font-size: 0.85rem;
+      color: var(--color-texto);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .btn-delete {
+      background: transparent;
+      color: var(--color-error);
+      border-color: rgba(156, 74, 59, 0.45);
+      padding: 0.45rem 0.9rem;
+      min-height: 40px;
+      font-size: 0.7rem;
+    }
+    .btn-delete:hover { background: var(--color-error); color: #fff; border-color: var(--color-error); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button:focus-visible, input:focus-visible, a:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.4);
+    }
+
+    /* Pantallas de login / sin acceso / cargando */
+    .card {
+      max-width: 26rem;
+      margin: 12vh auto 0;
+      padding: 2.5rem 1.75rem;
+      text-align: center;
+      background: #fff;
+      border: 1px solid var(--color-texto);
+      border-radius: 12px;
+    }
+    .card h1 { margin-bottom: 0.75rem; }
+    .card p { margin-bottom: 1.5rem; color: var(--color-texto-claro); }
+    .card .user { font-weight: 600; color: var(--color-texto); word-break: break-all; }
+    .card .actions { justify-content: center; }
+
+    /* Cabecera del panel */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+    .session { font-size: 0.8rem; color: var(--color-texto-claro); word-break: break-all; }
+
+    /* Contadores */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat {
+      background: var(--color-fondo-secundario);
+      border: 1px solid var(--color-texto);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+    }
+    .stat--main { background: var(--color-texto); color: var(--color-fondo); }
+    .stat__value {
+      font-family: var(--font-titulos);
+      font-size: 1.9rem;
+      font-weight: 600;
+      line-height: 1.1;
+    }
+    .stat__label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 0.25rem;
+    }
+
+    /* Buscador */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .search {
+      flex: 1 1 260px;
+      font: inherit;
+      font-size: 1rem; /* 16px: evita el zoom automático en iOS */
+      padding: 0.7rem 1rem;
+      border: 1.5px solid var(--color-texto);
+      border-radius: 0.5rem;
+      background: #fff;
+      color: var(--color-texto);
+    }
+    .count { font-size: 0.85rem; color: var(--color-texto-claro); }
+
+    .status {
+      padding: 0.8rem 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      color: var(--color-error);
+      background: rgba(156, 74, 59, 0.08);
+      border: 1px solid rgba(156, 74, 59, 0.3);
+    }
+
+    /* Tabla */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--color-texto);
+      border-radius: 12px;
+      background: #fff;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 0.7rem 0.85rem;
+      border-bottom: 1px solid var(--color-fondo-secundario);
+    }
+    th {
+      background: var(--color-fondo-secundario);
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    tbody tr:hover { background: var(--color-fondo); }
+    tbody tr:last-child td { border-bottom: none; }
+    td.nombre { font-weight: 600; white-space: nowrap; }
+    td.fecha { white-space: nowrap; color: var(--color-texto-claro); }
+    td.mensaje { min-width: 220px; white-space: pre-wrap; }
+    td.cancion { min-width: 160px; word-break: break-word; }
+    td.acciones { width: 1%; white-space: nowrap; }
+    td a { color: var(--color-texto); font-weight: 600; text-underline-offset: 3px; }
+    .empty { text-align: center; color: var(--color-texto-claro); padding: 2rem 1rem; }
+
+    /* Mobile: cada respuesta pasa a ser una tarjeta en vez de una tabla con scroll lateral */
+    @media (max-width: 640px) {
+      .table-wrap { border: none; background: transparent; overflow: visible; }
+      table, thead, tbody, tr, td { display: block; width: 100%; }
+      thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      tbody tr {
+        background: #fff;
+        border: 1px solid var(--color-texto);
+        border-radius: 12px;
+        padding: 0.4rem 0;
+        margin-bottom: 0.75rem;
+      }
+      td { border-bottom: none; padding: 0.35rem 1rem; white-space: normal; min-width: 0; }
+      td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.65rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-texto-claro);
+      }
+      td.nombre::before, td.acciones::before { display: none; }
+      td.nombre { font-size: 1.05rem; }
+      td.acciones { width: 100%; padding-top: 0.6rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Cargando (mientras Firebase resuelve si hay sesión) -->
+    <section class="card" id="view-loading">
+      <p>Cargando…</p>
+    </section>
+
+    <!-- Sin sesión -->
+    <section class="card" id="view-login" hidden>
+      <h1>Admin RSVP</h1>
+      <p>Ingresá con tu cuenta de Google para ver las confirmaciones.</p>
+      <div class="actions">
+        <button type="button" class="btn-solid" id="btn-login">Ingresar con Google</button>
+      </div>
+      <p class="status" id="login-error" hidden style="margin: 1.25rem 0 0;"></p>
+    </section>
+
+    <!-- Logueado pero sin permiso de lectura (no está en "admins") -->
+    <section class="card" id="view-denied" hidden>
+      <h1>Sin acceso</h1>
+      <p>La cuenta <span class="user" id="denied-email"></span> no tiene permiso para ver este panel.</p>
+      <div class="actions">
+        <button type="button" class="btn-outline" id="btn-logout-denied">Cerrar sesión</button>
+      </div>
+    </section>
+
+    <!-- Panel -->
+    <section id="view-admin" hidden>
+      <div class="topbar">
+        <div>
+          <h1>Confirmaciones</h1>
+          <p class="subtitle" id="last-update"></p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn-solid" id="btn-refresh">Actualizar</button>
+          <button type="button" class="btn-outline" id="btn-csv">Descargar CSV</button>
+        </div>
+      </div>
+      <p class="session">
+        <span id="user-email"></span> ·
+        <button type="button" class="btn-link" id="btn-logout">Cerrar sesión</button>
+      </p>
+
+      <section class="stats" id="stats" aria-label="Resumen" style="margin-top: 1rem;"></section>
+
+      <div class="status" id="status" hidden></div>
+
+      <div class="toolbar">
+        <input
+          type="search"
+          class="search"
+          id="search"
+          placeholder="Buscar por nombre…"
+          aria-label="Buscar por nombre"
+          autocomplete="off">
+        <span class="count" id="count"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Nombre</th>
+              <th scope="col">Menú</th>
+              <th scope="col">Canción</th>
+              <th scope="col">Mensaje</th>
+              <th scope="col">Fecha</th>
+              <th scope="col"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { firebaseConfig } from './firebase-config.js';
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged,
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import {
+      getFirestore,
+      collection,
+      query,
+      orderBy,
+      getDocs,
+      doc,
+      deleteDoc,
+    } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const $ = (id) => document.getElementById(id);
+    const views = {
+      loading: $('view-loading'),
+      login: $('view-login'),
+      denied: $('view-denied'),
+      admin: $('view-admin'),
+    };
+
+    let allRows = [];
+
+    function show(name) {
+      Object.entries(views).forEach(([key, el]) => { el.hidden = key !== name; });
+    }
+
+    // --- Helpers -----------------------------------------------------------
+
+    // Para buscar sin importar mayúsculas ni tildes ("perez" encuentra "Pérez").
+    function fold(str) {
+      return String(str || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .trim();
+    }
+
+    function isEmpty(value) {
+      const v = String(value || '').trim();
+      return v === '' || v === '-';
+    }
+
+    function menuItems(row) {
+      if (isEmpty(row.menu)) return [];
+      return String(row.menu).split(',').map((s) => s.trim()).filter(Boolean);
+    }
+
+    function formatFecha(date) {
+      if (!date) return '';
+      return date.toLocaleString('es-AR', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      });
+    }
+
+    function setStatus(message) {
+      $('status').hidden = !message;
+      $('status').textContent = message || '';
+    }
+
+    // --- Render ------------------------------------------------------------
+
+    function renderStats() {
+      // Menu puede traer varias opciones separadas por coma: cada una suma.
+      const porMenu = new Map();
+      allRows.forEach((row) => {
+        menuItems(row).forEach((item) => porMenu.set(item, (porMenu.get(item) || 0) + 1));
+      });
+
+      const cards = [{ value: allRows.length, label: 'Confirmados', main: true }];
+      [...porMenu.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([label, value]) => cards.push({ value, label }));
+
+      $('stats').replaceChildren(...cards.map(({ value, label, main }) => {
+        const card = document.createElement('div');
+        card.className = main ? 'stat stat--main' : 'stat';
+        const v = document.createElement('div');
+        v.className = 'stat__value';
+        v.textContent = value;
+        const l = document.createElement('div');
+        l.className = 'stat__label';
+        l.textContent = label;
+        card.append(v, l);
+        return card;
+      }));
+    }
+
+    // Todo lo que escriben los invitados se inserta con textContent, nunca
+    // como HTML, para que un mensaje con contenido raro no rompa la página.
+    function cell(className, label, text) {
+      const td = document.createElement('td');
+      td.className = className;
+      td.dataset.label = label;
+      td.textContent = isEmpty(text) ? '—' : text;
+      return td;
+    }
+
+    // Si la canción es un link (Spotify/YouTube), la mostramos como enlace.
+    function cancionCell(value) {
+      const td = cell('cancion', 'Canción', value);
+      const text = String(value || '').trim();
+      if (/^https?:\/\//i.test(text)) {
+        td.textContent = '';
+        const a = document.createElement('a');
+        a.href = text;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = text.length > 45 ? `${text.slice(0, 45)}…` : text;
+        a.title = text;
+        td.append(a);
+      }
+      return td;
+    }
+
+    function deleteCell(row) {
+      const td = document.createElement('td');
+      td.className = 'acciones';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-delete';
+      btn.textContent = 'Eliminar';
+      btn.setAttribute('aria-label', `Eliminar la confirmación de ${row.nombre}`);
+      btn.addEventListener('click', () => deleteRow(row, btn));
+      td.append(btn);
+      return td;
+    }
+
+    function visibleRows() {
+      const q = fold($('search').value);
+      // Ya vienen ordenadas por fecha (más recientes primero) desde Firestore.
+      return allRows.filter((row) => !q || fold(row.nombre).includes(q));
+    }
+
+    function renderTable() {
+      const rows = visibleRows();
+      $('count').textContent = `${rows.length} de ${allRows.length} confirmaciones`;
+
+      if (!rows.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 6;
+        td.className = 'empty';
+        td.textContent = allRows.length ? 'Ningún nombre coincide con la búsqueda.' : 'Todavía no hay confirmaciones.';
+        tr.append(td);
+        $('rows').replaceChildren(tr);
+        return;
+      }
+
+      $('rows').replaceChildren(...rows.map((row) => {
+        const tr = document.createElement('tr');
+        tr.append(
+          cell('nombre', 'Nombre', row.nombre),
+          cell('menu', 'Menú', row.menu),
+          cancionCell(row.cancion),
+          cell('mensaje', 'Mensaje', row.mensaje),
+          cell('fecha', 'Fecha', formatFecha(row.fecha)),
+          deleteCell(row),
+        );
+        return tr;
+      }));
+    }
+
+    function renderAll() {
+      renderStats();
+      renderTable();
+    }
+
+    // --- Datos -------------------------------------------------------------
+
+    async function load() {
+      const refresh = $('btn-refresh');
+      refresh.disabled = true;
+      refresh.textContent = 'Cargando…';
+      setStatus('');
+
+      try {
+        const snap = await getDocs(query(collection(db, 'rsvps'), orderBy('fecha', 'desc')));
+        allRows = snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            nombre: data.nombre || d.id,
+            menu: data.menu || '',
+            cancion: data.cancion || '',
+            mensaje: data.mensaje || '',
+            fecha: data.fecha && typeof data.fecha.toDate === 'function' ? data.fecha.toDate() : null,
+          };
+        });
+        show('admin');
+        renderAll();
+        $('last-update').textContent = `Actualizado: ${formatFecha(new Date())}`;
+      } catch (err) {
+        // Las reglas solo dejan leer a los admins: cualquier otra cuenta
+        // recibe permission-denied.
+        if (err.code === 'permission-denied') {
+          $('denied-email').textContent = auth.currentUser ? auth.currentUser.email : '';
+          show('denied');
+        } else {
+          console.error(err);
+          show('admin');
+          setStatus(`No se pudieron cargar las confirmaciones (${err.message}). Revisá la conexión y probá "Actualizar".`);
+        }
+      } finally {
+        refresh.disabled = false;
+        refresh.textContent = 'Actualizar';
+      }
+    }
+
+    async function deleteRow(row, btn) {
+      const ok = confirm(
+        `¿Eliminar la confirmación de ${row.nombre}?\n\n` +
+        'No se puede deshacer, y esa persona va a poder volver a completar el formulario.'
+      );
+      if (!ok) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Eliminando…';
+      try {
+        await deleteDoc(doc(db, 'rsvps', row.id));
+        allRows = allRows.filter((r) => r.id !== row.id);
+        renderAll();
+      } catch (err) {
+        console.error(err);
+        setStatus(`No se pudo eliminar a ${row.nombre} (${err.message}).`);
+        btn.disabled = false;
+        btn.textContent = 'Eliminar';
+      }
+    }
+
+    // Exporta lo que se ve en pantalla (respeta la búsqueda).
+    function downloadCsv() {
+      const columns = [
+        ['Nombre', (r) => r.nombre],
+        ['Menu', (r) => r.menu],
+        ['Cancion', (r) => r.cancion],
+        ['Mensaje', (r) => r.mensaje],
+        ['Fecha', (r) => formatFecha(r.fecha)],
+      ];
+      const escape = (value) => {
+        let text = String(value ?? '');
+        // Evita que Excel interprete como fórmula algo que empiece con = + - @
+        if (/^[=+\-@]/.test(text)) text = `'${text}`;
+        return `"${text.replace(/"/g, '""')}"`;
+      };
+      const lines = [
+        columns.map(([name]) => name).join(';'),
+        ...visibleRows().map((row) => columns.map(([, get]) => escape(get(row))).join(';')),
+      ];
+      // BOM + ";" como separador: Excel en español lo abre con tildes y
+      // columnas bien separadas sin pasos extra.
+      const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rsvp-lara-seba-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // --- Sesión ------------------------------------------------------------
+
+    async function login() {
+      const errorEl = $('login-error');
+      errorEl.hidden = true;
+      const provider = new GoogleAuthProvider();
+      // Que siempre deje elegir cuenta (útil si el navegador tiene varias).
+      provider.setCustomParameters({ prompt: 'select_account' });
+      try {
+        await signInWithPopup(auth, provider);
+        // onAuthStateChanged se encarga del resto.
+      } catch (err) {
+        if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+        const messages = {
+          'auth/popup-blocked': 'El navegador bloqueó la ventana de Google. Permití ventanas emergentes para este sitio y probá de nuevo.',
+          'auth/unauthorized-domain': 'Este dominio no está autorizado en Firebase (Authentication > Configuración > Dominios autorizados).',
+          'auth/network-request-failed': 'Sin conexión. Revisá internet y probá de nuevo.',
+        };
+        errorEl.textContent = messages[err.code] || `No se pudo iniciar sesión (${err.code || err.message}).`;
+        errorEl.hidden = false;
+      }
+    }
+
+    function logout() {
+      signOut(auth);
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        allRows = [];
+        show('login');
+        return;
+      }
+      $('user-email').textContent = user.email;
+      show('loading');
+      load();
+    });
+
+    $('btn-login').addEventListener('click', login);
+    $('btn-logout').addEventListener('click', logout);
+    $('btn-logout-denied').addEventListener('click', logout);
+    $('btn-refresh').addEventListener('click', load);
+    $('btn-csv').addEventListener('click', downloadCsv);
+    $('search').addEventListener('input', renderTable);
+  </script>
+</body>
+</html>

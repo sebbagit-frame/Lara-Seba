@@ -196,10 +196,58 @@ function initGiftsModal() {
 
 // ==========================================================================
 // FORMULARIO DE RSVP
-// Envía las respuestas a SheetDB (https://sheetdb.io), que las guarda como
-// filas en una hoja de Google Sheets conectada a este endpoint.
+// Guarda cada confirmación como un documento en la colección "rsvps" de
+// Firebase Firestore (configuración en firebase-config.js, reglas en
+// firestore.rules).
 // ==========================================================================
-const SHEETDB_URL = 'https://sheetdb.io/api/v1/icao3nsec6d7i';
+
+// Este archivo es un script clásico (no un módulo), así que el SDK modular
+// de Firebase se carga con import() dinámico, recién cuando el invitado
+// empieza a completar el formulario: así quien solo mira la invitación no
+// descarga el SDK. La promesa se reutiliza entre envíos; si falla (por
+// ejemplo, sin conexión), se descarta para que el próximo intento reintente.
+let firestorePromise = null;
+
+function loadFirestore() {
+  if (!firestorePromise) {
+    firestorePromise = (async () => {
+      const { firebaseConfig, FIREBASE_SDK_URL } = await import('./firebase-config.js');
+      const [{ initializeApp }, firestore] = await Promise.all([
+        import(`${FIREBASE_SDK_URL}/firebase-app.js`),
+        import(`${FIREBASE_SDK_URL}/firebase-firestore.js`),
+      ]);
+      const app = initializeApp(firebaseConfig);
+      return {
+        db: firestore.getFirestore(app),
+        doc: firestore.doc,
+        setDoc: firestore.setDoc,
+        serverTimestamp: firestore.serverTimestamp,
+      };
+    })();
+    firestorePromise.catch(() => {
+      firestorePromise = null;
+    });
+  }
+  return firestorePromise;
+}
+
+// Sin conexión, Firestore no rechaza la escritura: la deja en espera hasta
+// que vuelva la red, y el botón quedaría en "Enviando..." para siempre.
+// Si no hay respuesta del servidor en este tiempo, lo tratamos como error
+// de red.
+const RSVP_TIMEOUT_MS = 15000;
+
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error('Tiempo de espera agotado');
+      err.code = 'timeout';
+      reject(err);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 function initRsvpForm() {
   const form = document.getElementById('rsvp-form');
@@ -233,9 +281,8 @@ function initRsvpForm() {
 
   // "juan   pérez" -> "Juan Perez": recorta, colapsa espacios múltiples,
   // saca tildes (pedimos escribir sin tildes, pero por si alguien las
-  // tipea igual) y deja Mayúscula inicial por palabra. Se usa tanto para
-  // lo que se manda a SheetDB como para la consulta de duplicados, así
-  // "Juan Pérez" y "juan  perez" (sic) se reconocen como el mismo nombre.
+  // tipea igual) y deja Mayúscula inicial por palabra. Es el nombre que se
+  // guarda y se ve en la admin.
   function normalizeName(rawName) {
     return stripAccents(rawName.trim().replace(/\s+/g, ' '))
       .toLowerCase()
@@ -244,21 +291,24 @@ function initRsvpForm() {
       .join(' ');
   }
 
-  // Busca en SheetDB si ya hay una fila con este nombre. Si la consulta
-  // falla (sin internet, SheetDB caído, etc.) devolvemos false: un error
-  // de red acá no debe bloquear el envío de nadie.
-  async function isNameAlreadyRegistered(name) {
-    try {
-      const searchUrl = `${SHEETDB_URL}/search?Nombre=${encodeURIComponent(name)}&casesensitive=false`;
-      const response = await fetch(searchUrl);
-      if (!response.ok) return false;
-      const rows = await response.json();
-      return Array.isArray(rows) && rows.length > 0;
-    } catch (err) {
-      console.warn('No se pudo verificar si el invitado ya respondió (se deja enviar igual):', err);
-      return false;
-    }
+  // ID del documento en Firestore: "Juan Pérez" -> "juan-perez". Como es el
+  // mismo ID para el mismo nombre, un segundo envío intenta pisar un
+  // documento que ya existe; las reglas solo permiten crear, así que
+  // Firestore lo rechaza (permission-denied) y eso es lo que detecta el
+  // duplicado. La "/" no puede ir en un ID de Firestore: se reemplaza.
+  function toDocId(normalizedName) {
+    return normalizedName
+      .toLowerCase()
+      .replace(/\//g, ' ')
+      .trim()
+      .replace(/\s+/g, '-');
   }
+
+  // Bajamos el SDK de Firebase recién cuando el invitado empieza a
+  // completar el formulario: para cuando toque "Confirmar", ya está listo.
+  form.addEventListener('focusin', () => {
+    loadFirestore().catch(() => {});
+  }, { once: true });
 
   // El formulario es solo para confirmar asistencia (quien no puede ir
   // avisa por WhatsApp, ver link debajo del botón): Menú, Canción y
@@ -296,7 +346,16 @@ function initRsvpForm() {
     errorEl.hidden = true;
 
     const nombre = normalizeName(form.nombre.value);
+    const docId = toDocId(nombre);
     const mensaje = form.mensaje.value.trim();
+
+    // "required" no frena un nombre hecho solo de espacios; acá sí, porque
+    // quedaría un ID de documento vacío.
+    if (!docId) {
+      form.nombre.value = '';
+      form.nombre.reportValidity();
+      return;
+    }
 
     // Checkboxes no tienen una validación nativa de "al menos uno tildado
     // dentro del grupo", así que la hacemos a mano.
@@ -308,58 +367,30 @@ function initRsvpForm() {
     }
     menuError.hidden = true;
 
-    // "Menu" (sin tilde, coincide con el header de la hoja de SheetDB):
-    // varias opciones posibles, unidas por coma.
+    // Varias opciones posibles, unidas por coma.
     const menu = menuChecked.map((cb) => cb.value).join(', ');
-    // "Cancion" (sin tilde, ídem): opcional, "-" si quedó vacío.
-    const cancion = cancionInput.value.trim() || '-';
-
-    // Fecha en formato legible (ej: "7/9/2026 14:32") para identificar cuándo llegó cada respuesta.
-    const fecha = new Date().toLocaleString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    // Opcional: string vacío si no completó nada.
+    const cancion = cancionInput.value.trim();
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Enviando...';
 
-    // Antes de mandar nada, nos fijamos si este nombre ya respondió. Sigue
-    // mostrando "Enviando..." durante esta consulta: para quien completa
-    // el formulario es parte del mismo envío, no un paso aparte.
-    const yaRespondio = await isNameAlreadyRegistered(nombre);
-    if (yaRespondio) {
-      errorEl.textContent = DUPLICATE_MESSAGE;
-      errorEl.hidden = false;
-      submitBtn.disabled = false;
-      submitBtn.textContent = submitBtnDefaultText;
-      return;
-    }
-
     try {
-      const response = await fetch(SHEETDB_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          data: {
-            Nombre: nombre,
-            // El formulario solo sirve para confirmar: siempre "Sí".
-            Asistencia: 'Sí',
-            Menu: menu,
-            Cancion: cancion,
-            Mensaje: mensaje,
-            Fecha: fecha,
-          },
+      const { db, doc, setDoc, serverTimestamp } = await withTimeout(loadFirestore(), RSVP_TIMEOUT_MS);
+      await withTimeout(
+        setDoc(doc(db, 'rsvps', docId), {
+          nombre,
+          // El formulario solo sirve para confirmar: siempre "Sí".
+          asistencia: 'Sí',
+          menu,
+          cancion,
+          mensaje,
+          // La hora la pone el servidor de Firebase, no el celular del
+          // invitado (que puede tener la hora mal o en otro formato).
+          fecha: serverTimestamp(),
         }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`SheetDB respondió con estado ${response.status}`);
-      }
+        RSVP_TIMEOUT_MS
+      );
 
       // Éxito: reseteamos el formulario (para que ya esté vacío la próxima
       // vez que se muestre), lo ocultamos y mostramos el agradecimiento.
@@ -367,12 +398,13 @@ function initRsvpForm() {
       form.hidden = true;
       successEl.hidden = false;
     } catch (err) {
-      // Error de red o de la API: mostramos el aviso y dejamos el formulario
-      // intacto (con todo lo que la persona ya completó) para que reintente.
-      console.error('Error al enviar el RSVP:', err);
-      // Por si justo antes se había mostrado el aviso de duplicado en este
-      // mismo elemento: volvemos a su texto genérico.
-      errorEl.textContent = errorElDefaultText;
+      // permission-denied = ya existe un documento con este nombre (las
+      // reglas no permiten pisarlo). Cualquier otra cosa (sin conexión,
+      // timeout, SDK que no cargó) es un error de red: mostramos el aviso
+      // genérico y dejamos el formulario intacto para que reintente.
+      const isDuplicate = err && err.code === 'permission-denied';
+      if (!isDuplicate) console.error('Error al enviar el RSVP:', err);
+      errorEl.textContent = isDuplicate ? DUPLICATE_MESSAGE : errorElDefaultText;
       errorEl.hidden = false;
       submitBtn.disabled = false;
       submitBtn.textContent = submitBtnDefaultText;

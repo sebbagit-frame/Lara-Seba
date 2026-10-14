@@ -1,0 +1,86 @@
+rules_version = '2';
+
+// Reglas de Firestore — Boda Lara & Seba.
+// Se pegan en la consola de Firebase: Firestore Database > Reglas > Publicar.
+// (Este archivo es la copia versionada; lo que vale es lo publicado ahí.)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Admin = cuenta de Google logueada, con mail verificado, que tenga un
+    // documento en la colección "admins" cuyo ID sea su mail exacto
+    // (ej: admins/nombre@gmail.com). Esos documentos se
+    // crean a mano desde la consola: nadie puede crearlos desde el sitio.
+    // Así los mails de los admins no quedan escritos en el código público.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
+    }
+
+    // ===== RSVPs ==========================================================
+    // ID del documento = nombre normalizado (ej: "juan-perez").
+    // - create: cualquiera (el formulario es público), con la forma exacta
+    //   que manda script.js.
+    // - update: NUNCA. Un segundo envío con el mismo nombre intenta pisar
+    //   un documento existente, lo que cuenta como update y se rechaza con
+    //   permission-denied: así el sitio detecta que esa persona ya respondió.
+    // - read / delete: solo admins (admin.html).
+    //
+    // Los límites de largo coinciden con los maxlength de index.html: si
+    // no, un texto demasiado largo también daría permission-denied y el
+    // sitio lo confundiría con un duplicado.
+    match /rsvps/{rsvpId} {
+      allow create: if isValidRsvp(rsvpId);
+      allow read, delete: if isAdmin();
+    }
+
+    function isValidRsvp(rsvpId) {
+      let d = request.resource.data;
+      return rsvpId.size() <= 150
+        && d.keys().hasOnly(['nombre', 'asistencia', 'menu', 'cancion', 'mensaje', 'fecha'])
+        && d.keys().hasAll(['nombre', 'asistencia', 'menu', 'cancion', 'mensaje', 'fecha'])
+        && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 120
+        && d.asistencia == 'Sí'
+        && d.menu is string && d.menu.size() > 0 && d.menu.size() <= 200
+        && d.cancion is string && d.cancion.size() <= 250
+        && d.mensaje is string && d.mensaje.size() <= 2000
+        // serverTimestamp(): la fecha la pone Firebase, no el navegador.
+        && d.fecha == request.time;
+    }
+
+    // ===== MESAS (preparado para el armador de mesas, todavía sin usar) ===
+    // Un documento por mesa, solo admins pueden leer y escribir.
+    //
+    //   mesas/{mesaId}
+    //     nombre:      string   ("Mesa 1", "Familia Lara", ...)
+    //     capacidad:   number   (lugares: 1 a 30)
+    //     invitados:   string[] (IDs de documentos de "rsvps", ej "juan-perez")
+    //     orden:       number   (posición en el plano)
+    //     actualizado: timestamp
+    //
+    // Ojo para cuando se implemente: si se borra un RSVP desde la admin,
+    // hay que sacar su ID de "invitados" en la mesa donde esté sentado.
+    match /mesas/{mesaId} {
+      allow read, delete: if isAdmin();
+      allow create, update: if isAdmin() && isValidMesa();
+    }
+
+    function isValidMesa() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['nombre', 'capacidad', 'invitados', 'orden', 'actualizado'])
+        && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 60
+        && d.capacidad is int && d.capacidad >= 1 && d.capacidad <= 30
+        && d.invitados is list && d.invitados.size() <= d.capacidad
+        && (!('orden' in d) || d.orden is number)
+        && (!('actualizado' in d) || d.actualizado is timestamp);
+    }
+
+    // ===== ADMINS =========================================================
+    // Se gestionan solo desde la consola de Firebase. Un admin puede leer
+    // la lista, nadie puede escribirla desde el sitio.
+    match /admins/{email} {
+      allow read: if isAdmin();
+    }
+  }
+}
