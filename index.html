@@ -378,7 +378,12 @@
       <h2 class="section__title reveal">Confirmá tu asistencia</h2>
       <p class="rsvp-note reveal">Invitación personal. Completá un formulario por cada persona invitada.</p>
       <p class="section__text reveal">
-        Necesitamos que nos confirmes si vas a poder acompañarnos, para organizar todo con tiempo.
+        Confirmanos tu asistencia para que podamos organizar todo con tiempo. Si no podés venir, avisanos por
+        <a
+          href="https://wa.me/5491133480244?text=Hola%20Seba!%20Te%20escribo%20porque%20no%20voy%20a%20poder%20asistir"
+          target="_blank"
+          rel="noopener"
+          class="rsvp-form__decline-link">WhatsApp</a>.
       </p>
 
       <div class="rsvp-reminder reveal">
@@ -399,73 +404,52 @@
         </div>
 
         <div class="form-field">
-          <span class="form-field__label">¿Confirmás tu asistencia?</span>
-          <div class="rsvp-form__radios" role="radiogroup" aria-label="¿Confirmás tu asistencia?">
-            <label class="rsvp-form__radio">
-              <input type="radio" name="asistencia" value="Sí" required>
-              Sí, ahí voy a estar
+          <span class="form-field__label">Menú</span>
+          <!-- "Menú tradicional" es excluyente con el resto (ver
+               initRsvpForm en script.js): si se tilda, destilda
+               automáticamente cualquier otra opción, y viceversa. Las
+               demás sí se pueden combinar entre sí libremente. -->
+          <div class="rsvp-form__checkboxes" role="group" aria-label="Menú">
+            <label class="rsvp-form__checkbox">
+              <input type="checkbox" name="menu" value="Menú tradicional" id="rsvp-menu-tradicional">
+              Menú tradicional
             </label>
-            <label class="rsvp-form__radio">
-              <input type="radio" name="asistencia" value="No" required>
-              No voy a poder ir
+            <label class="rsvp-form__checkbox">
+              <input type="checkbox" name="menu" value="Vegetariano">
+              Vegetariano
+            </label>
+            <label class="rsvp-form__checkbox">
+              <input type="checkbox" name="menu" value="Celíaco / Sin TACC">
+              Celíaco / Sin TACC
+            </label>
+            <label class="rsvp-form__checkbox">
+              <input type="checkbox" name="menu" value="Intolerancia / Alergias">
+              Intolerancia / Alergias
             </label>
           </div>
+          <p class="rsvp-form__field-error" id="rsvp-menu-error" hidden>
+            Elegí al menos una opción de menú.
+          </p>
         </div>
 
-        <!-- Menú y Mensaje solo importan si la persona va a venir: quedan
-             ocultos con una transición suave hasta que se marca "Sí, ahí
-             voy a estar" (ver script.js, initRsvpForm). -->
-        <div class="rsvp-form__conditional" id="rsvp-conditional">
-          <div class="rsvp-form__conditional-inner">
-            <div class="form-field">
-              <span class="form-field__label">Menú</span>
-              <!-- "Menú tradicional" es excluyente con el resto (ver
-                   syncMenuExclusivity en script.js): si se tilda, destilda
-                   automáticamente cualquier otra opción, y viceversa. Las
-                   otras cuatro sí se pueden combinar entre sí libremente. -->
-              <div class="rsvp-form__checkboxes" role="group" aria-label="Menú">
-                <label class="rsvp-form__checkbox">
-                  <input type="checkbox" name="menu" value="Menú tradicional" id="rsvp-menu-tradicional">
-                  Menú tradicional
-                </label>
-                <label class="rsvp-form__checkbox">
-                  <input type="checkbox" name="menu" value="Vegetariano">
-                  Vegetariano
-                </label>
-                <label class="rsvp-form__checkbox">
-                  <input type="checkbox" name="menu" value="Celíaco / Sin TACC">
-                  Celíaco / Sin TACC
-                </label>
-                <label class="rsvp-form__checkbox">
-                  <input type="checkbox" name="menu" value="Intolerancia / Alergias">
-                  Intolerancia / Alergias
-                </label>
-              </div>
-              <p class="rsvp-form__field-error" id="rsvp-menu-error" hidden>
-                Elegí al menos una opción de menú.
-              </p>
-            </div>
+        <div class="form-field">
+          <label for="rsvp-cancion" class="form-field__label">Una canción que no puede faltar (opcional)</label>
+          <input
+            type="text"
+            id="rsvp-cancion"
+            name="cancion"
+            class="form-field__input"
+            placeholder="Canción - Artista (o pegá un link)"
+            maxlength="250">
+        </div>
 
-            <div class="form-field">
-              <label for="rsvp-cancion" class="form-field__label">Una canción que no puede faltar (opcional)</label>
-              <input
-                type="text"
-                id="rsvp-cancion"
-                name="cancion"
-                class="form-field__input"
-                placeholder="Canción - Artista (o pegá un link)"
-                maxlength="250">
-            </div>
-
-            <div class="form-field">
-              <label for="rsvp-mensaje" class="form-field__label">Comentarios adicionales (opcional)</label>
-              <textarea
-                id="rsvp-mensaje"
-                name="mensaje"
-                class="form-field__input form-field__textarea"
-                rows="4"></textarea>
-            </div>
-          </div>
+        <div class="form-field">
+          <label for="rsvp-mensaje" class="form-field__label">Comentarios adicionales (opcional)</label>
+          <textarea
+            id="rsvp-mensaje"
+            name="mensaje"
+            class="form-field__input form-field__textarea"
+            rows="4"></textarea>
         </div>
 
         <p class="rsvp-form__error" id="rsvp-form-error" hidden>
@@ -475,6 +459,15 @@
         <button type="submit" class="btn btn--solid rsvp-form__submit" id="rsvp-submit-btn">
           Confirmar asistencia
         </button>
+
+        <p class="rsvp-form__decline">
+          Si no podés asistir, avisanos por
+          <a
+            href="https://wa.me/5491133480244?text=Hola%20Seba!%20Te%20escribo%20porque%20no%20voy%20a%20poder%20asistir"
+            target="_blank"
+            rel="noopener"
+            class="rsvp-form__decline-link">WhatsApp</a>.
+        </p>
       </form>
 
       <div class="rsvp-success" id="rsvp-success" hidden>

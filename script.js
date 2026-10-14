@@ -223,12 +223,12 @@ function initRsvpForm() {
   // resto de los diacríticos.
   function stripAccents(str) {
     return str
-      .replace(/ñ/g, '')
-      .replace(/Ñ/g, '')
+      .replace(/ñ/g, '\uE000')
+      .replace(/Ñ/g, '\uE001')
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(//g, 'ñ')
-      .replace(//g, 'Ñ');
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\uE000/g, 'ñ')
+      .replace(/\uE001/g, 'Ñ');
   }
 
   // "juan   pérez" -> "Juan Perez": recorta, colapsa espacios múltiples,
@@ -260,30 +260,13 @@ function initRsvpForm() {
     }
   }
 
-  // Menú y Mensaje solo aplican si la persona va a venir: el radio
-  // "asistencia" controla si ese bloque se ve (con transición).
-  const asistenciaRadios = form.querySelectorAll('input[name="asistencia"]');
-  const conditionalFields = document.getElementById('rsvp-conditional');
+  // El formulario es solo para confirmar asistencia (quien no puede ir
+  // avisa por WhatsApp, ver link debajo del botón): Menú, Canción y
+  // Mensaje se muestran siempre, sin bloque condicional.
   const menuCheckboxes = form.querySelectorAll('input[name="menu"]');
   const menuTradicional = document.getElementById('rsvp-menu-tradicional');
   const menuError = document.getElementById('rsvp-menu-error');
   const cancionInput = document.getElementById('rsvp-cancion');
-
-  function syncConditionalFields() {
-    const checked = form.querySelector('input[name="asistencia"]:checked');
-    const asiste = !!checked && checked.value === 'Sí';
-    conditionalFields.classList.toggle('is-visible', asiste);
-    if (!asiste) {
-      menuError.hidden = true;
-      // Igual que Menú/Mensaje: si se pasa a "No", limpiamos lo que haya
-      // quedado cargado acá, no solo lo ocultamos.
-      cancionInput.value = '';
-    }
-  }
-
-  asistenciaRadios.forEach((radio) => {
-    radio.addEventListener('change', syncConditionalFields);
-  });
 
   // "Menú tradicional" es excluyente con el resto: tildar uno destilda
   // automáticamente el otro grupo, en cualquiera de los dos sentidos.
@@ -302,30 +285,23 @@ function initRsvpForm() {
   });
 
   // El navegador puede restaurar el formulario tal como quedó antes de
-  // recargar (radios marcados, texto tipeado), incluso con
+  // recargar (checkboxes tildados, texto tipeado), incluso con
   // autocomplete="off" en el <form> — eso solo evita el autocompletado de
   // datos guardados, no la restauración de estado de la propia sesión de
   // navegación. Forzamos que arranque siempre vacío.
   form.reset();
-  // form.reset() no dispara 'change' en los radios, así que Menú y
-  // Mensaje no se ocultarían solos si el navegador los había mostrado.
-  syncConditionalFields();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     errorEl.hidden = true;
 
     const nombre = normalizeName(form.nombre.value);
-    const asistenciaInput = form.querySelector('input[name="asistencia"]:checked');
-    const asistencia = asistenciaInput ? asistenciaInput.value : '';
-    const asiste = asistencia === 'Sí';
     const mensaje = form.mensaje.value.trim();
 
     // Checkboxes no tienen una validación nativa de "al menos uno tildado
-    // dentro del grupo" (a diferencia de "required" en radios), así que la
-    // hacemos a mano acá, y solo si la persona confirmó que viene.
+    // dentro del grupo", así que la hacemos a mano.
     const menuChecked = Array.from(menuCheckboxes).filter((cb) => cb.checked);
-    if (asiste && menuChecked.length === 0) {
+    if (menuChecked.length === 0) {
       menuError.hidden = false;
       menuError.previousElementSibling.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
@@ -333,10 +309,10 @@ function initRsvpForm() {
     menuError.hidden = true;
 
     // "Menu" (sin tilde, coincide con el header de la hoja de SheetDB):
-    // varias opciones posibles, unidas por coma; "-" si no asiste.
-    const menu = asiste ? menuChecked.map((cb) => cb.value).join(', ') : '-';
-    // "Cancion" (sin tilde, ídem): opcional, "-" si no asiste o si quedó vacío.
-    const cancion = asiste ? (cancionInput.value.trim() || '-') : '-';
+    // varias opciones posibles, unidas por coma.
+    const menu = menuChecked.map((cb) => cb.value).join(', ');
+    // "Cancion" (sin tilde, ídem): opcional, "-" si quedó vacío.
+    const cancion = cancionInput.value.trim() || '-';
 
     // Fecha en formato legible (ej: "7/9/2026 14:32") para identificar cuándo llegó cada respuesta.
     const fecha = new Date().toLocaleString('es-AR', {
@@ -371,7 +347,8 @@ function initRsvpForm() {
         body: JSON.stringify({
           data: {
             Nombre: nombre,
-            Asistencia: asistencia,
+            // El formulario solo sirve para confirmar: siempre "Sí".
+            Asistencia: 'Sí',
             Menu: menu,
             Cancion: cancion,
             Mensaje: mensaje,
@@ -387,9 +364,6 @@ function initRsvpForm() {
       // Éxito: reseteamos el formulario (para que ya esté vacío la próxima
       // vez que se muestre), lo ocultamos y mostramos el agradecimiento.
       form.reset();
-      // form.reset() no dispara 'change' en los radios, así que Menú y
-      // Mensaje no se ocultarían solos: lo forzamos a mano.
-      syncConditionalFields();
       form.hidden = true;
       successEl.hidden = false;
     } catch (err) {

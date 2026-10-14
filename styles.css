@@ -634,9 +634,6 @@ section {
   .landing-gate.is-opening .landing-gate__curtain {
     opacity: 0;
   }
-  .rsvp-form__conditional {
-    transition: none;
-  }
 }
 
 /* ==========================================================================
@@ -1220,57 +1217,7 @@ section {
   font-family: inherit;
 }
 
-select.form-field__input {
-  cursor: pointer;
-}
-
-/* Menú y Mensaje: ocultos por default, aparecen con una transición suave
-   cuando se marca "Sí, ahí voy a estar" (clase .is-visible via JS).
-   grid-template-rows 0fr → 1fr en vez de max-height: anima la altura real
-   del contenido sin necesitar un valor fijo en px (que se rompería si el
-   texto de alguna opción del <select> hace que el bloque cambie de alto). */
-.rsvp-form__conditional {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition: grid-template-rows 0.4s ease, opacity 0.3s ease;
-}
-
-.rsvp-form__conditional.is-visible {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-
-.rsvp-form__conditional-inner {
-  overflow: hidden;
-  min-height: 0;
-}
-
-.rsvp-form__radios {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.75rem;
-}
-
-.rsvp-form__radio {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.4rem 0; /* agranda el área táctil sin agrandar el texto */
-  font-size: 0.95rem;
-  color: var(--color-texto);
-  cursor: pointer;
-}
-
-.rsvp-form__radio input[type="radio"] {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--color-detalle);
-  cursor: pointer;
-}
-
-/* Mismo patrón visual que .rsvp-form__radios, pero en columna: con 5
-   opciones (algunas largas, como "Celíaco / Sin TACC") en fila se
+/* En columna: con opciones largas como "Celíaco / Sin TACC", en fila se
    apretaban o rompían mal el layout en mobile. */
 .rsvp-form__checkboxes {
   display: flex;
@@ -1320,6 +1267,28 @@ select.form-field__input {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* "Si no podés asistir, avisanos por WhatsApp." debajo del botón. */
+.rsvp-form__decline {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--color-texto-claro);
+}
+
+.rsvp-form__decline-link {
+  color: var(--color-acento);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  /* Área táctil cómoda (~44px de alto) sin correr el texto: el padding
+     agranda la zona clickeable y el margin negativo compensa ese mismo
+     padding para que la línea no gane altura. */
+  display: inline-block;
+  padding: 0.75rem 0.3rem;
+  margin: -0.75rem -0.05rem;
 }
 
 .rsvp-form__error {
@@ -1499,13 +1468,5 @@ textarea:focus-visible,
 .music-toggle:focus-visible,
 .modal__close:focus-visible,
 .copy-btn:focus-visible {
-  border-radius: 50%;
-}
-
-/* Los radio buttons ya traen su propio foco nativo chico y pegado al
-   control; con box-shadow se ve mejor si además lo redondeamos. */
-.rsvp-form__radio input[type="radio"]:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.4);
   border-radius: 50%;
 }
