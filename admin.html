@@ -7,8 +7,8 @@
   <title>Admin RSVP | Lara &amp; Seba</title>
   <!--
     Panel de administración del RSVP. Es público (se publica con el sitio),
-    pero no expone nada: para ver o borrar respuestas hay que entrar con una
-    cuenta de Google que esté en la colección "admins" de Firestore (ver
+    pero no expone nada: para ver, borrar o armar mesas hay que entrar con
+    una cuenta de Google que esté en la colección "admins" de Firestore (ver
     firestore.rules). Cualquier otra cuenta ve "Sin acceso".
   -->
   <style>
@@ -42,6 +42,12 @@
       font-family: var(--font-titulos);
       font-weight: 500;
       font-size: clamp(1.6rem, 4vw, 2.2rem);
+    }
+
+    h2 {
+      font-family: var(--font-titulos);
+      font-weight: 500;
+      font-size: 1.2rem;
     }
 
     .subtitle { font-size: 0.85rem; color: var(--color-texto-claro); }
@@ -86,9 +92,22 @@
     }
     .btn-delete:hover { background: var(--color-error); color: #fff; border-color: var(--color-error); }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
-    button:focus-visible, input:focus-visible, a:focus-visible {
+    button:focus-visible, input:focus-visible, a:focus-visible, [role="button"]:focus-visible, [role="tab"]:focus-visible {
       outline: none;
       box-shadow: 0 0 0 3px rgba(212, 163, 115, 0.4);
+    }
+
+    /* Inputs (16px: evita el zoom automático de iOS al tocarlos) */
+    .field {
+      font: inherit;
+      font-size: 1rem;
+      min-height: 44px;
+      padding: 0.6rem 0.9rem;
+      border: 1.5px solid var(--color-texto);
+      border-radius: 0.5rem;
+      background: #fff;
+      color: var(--color-texto);
+      min-width: 0;
     }
 
     /* Pantallas de login / sin acceso / cargando */
@@ -113,7 +132,7 @@
       align-items: flex-end;
       justify-content: space-between;
       gap: 1rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
     }
     .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
     .session {
@@ -125,6 +144,26 @@
       color: var(--color-texto-claro);
     }
     .session #user-email { overflow-wrap: anywhere; }
+
+    /* Pestañas */
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      margin: 1rem 0 1.25rem;
+      border-bottom: 1.5px solid var(--color-fondo-secundario);
+    }
+    .tab {
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      border-radius: 0;
+      margin-bottom: -1.5px;
+      padding: 0.6rem 1rem;
+      color: var(--color-texto-claro);
+      font-weight: 600;
+    }
+    .tab[aria-selected="true"] { color: var(--color-texto); border-bottom-color: var(--color-detalle); }
+    .tab:hover { color: var(--color-texto); }
 
     /* Contadores */
     .stats {
@@ -162,16 +201,7 @@
       gap: 0.75rem;
       margin-bottom: 0.75rem;
     }
-    .search {
-      flex: 1 1 260px;
-      font: inherit;
-      font-size: 1rem; /* 16px: evita el zoom automático en iOS */
-      padding: 0.7rem 1rem;
-      border: 1.5px solid var(--color-texto);
-      border-radius: 0.5rem;
-      background: #fff;
-      color: var(--color-texto);
-    }
+    .search { flex: 1 1 220px; }
     .count { font-size: 0.85rem; color: var(--color-texto-claro); }
 
     .status {
@@ -219,6 +249,217 @@
     td.acciones { width: 1%; white-space: nowrap; padding-left: 1.5rem; }
     td a { color: var(--color-texto); font-weight: 600; text-underline-offset: 3px; }
     .empty { text-align: center; color: var(--color-texto-claro); padding: 2rem 1rem; }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
+    /* ===== Mesas ======================================================== */
+    .mesas-resumen {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      font-size: 0.85rem;
+      color: var(--color-texto-claro);
+      margin-bottom: 1rem;
+    }
+    .mesas-resumen strong { color: var(--color-texto); }
+
+    .mesas-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid var(--color-texto);
+      border-radius: 12px;
+      padding: 1rem;
+      min-width: 0;
+    }
+    .panel__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .badge {
+      display: inline-block;
+      min-width: 1.6rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      background: var(--color-fondo-secundario);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .hint { font-size: 0.8rem; color: var(--color-texto-claro); margin: 0.5rem 0 0.75rem; }
+
+    /* Panel "Sin mesa": también es zona de soltar (para sacar de una mesa). */
+    .sin-mesa .search { width: 100%; }
+    .sin-mesa.is-drop-target { outline: 2px dashed var(--color-detalle); outline-offset: 3px; }
+
+    .guest-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .sin-mesa .guest-list { max-height: 50vh; overflow-y: auto; padding: 2px; }
+    .guest-list__empty { font-size: 0.85rem; color: var(--color-texto-claro); padding: 0.5rem 0.25rem; }
+
+    /* Invitado: se toca (abre el selector de mesa) o se arrastra en escritorio. */
+    .guest {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0.45rem 0.75rem;
+      border: 1px solid var(--color-fondo-secundario);
+      border-radius: 0.5rem;
+      background: var(--color-fondo);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
+    .guest:hover { border-color: var(--color-detalle); }
+    .guest[draggable="true"] { cursor: grab; }
+    .guest.is-dragging { opacity: 0.45; }
+    .guest__nombre { font-weight: 600; font-size: 0.92rem; line-height: 1.3; }
+    .guest__menu { font-size: 0.75rem; color: var(--color-texto-claro); line-height: 1.3; }
+    .guest--huerfano .guest__nombre { color: var(--color-error); font-weight: 500; }
+
+    .mesas-main { min-width: 0; }
+
+    .mesa-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: flex-end;
+      margin-bottom: 1rem;
+    }
+    .mesa-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    .mesa-form .campo-nombre { flex: 1 1 160px; }
+    .mesa-form .campo-capacidad { flex: 0 0 6.5rem; }
+    .mesa-form .field { width: 100%; }
+
+    .mesas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 0.9rem;
+    }
+
+    .mesa {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      background: #fff;
+      border: 1px solid var(--color-texto);
+      border-radius: 12px;
+      padding: 0.9rem;
+      min-width: 0;
+      transition: outline-color 0.15s ease;
+    }
+    .mesa.is-drop-target { outline: 2px dashed var(--color-detalle); outline-offset: 3px; }
+    .mesa.is-drop-full { outline: 2px dashed var(--color-error); outline-offset: 3px; }
+    .mesa__head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+    .mesa__nombre {
+      font-family: var(--font-titulos);
+      font-size: 1.1rem;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
+    .mesa__ocupacion { font-size: 0.8rem; color: var(--color-texto-claro); white-space: nowrap; }
+    .mesa__ocupacion.is-full { color: var(--color-error); font-weight: 600; }
+    .mesa__barra { height: 6px; background: var(--color-fondo-secundario); border-radius: 999px; overflow: hidden; }
+    .mesa__barra span { display: block; height: 100%; background: var(--color-detalle); }
+    .mesa.is-full .mesa__barra span { background: var(--color-texto); }
+    .mesa__vacia { font-size: 0.85rem; color: var(--color-texto-claro); padding: 0.4rem 0; }
+
+    /* Invitado sentado: el nombre se toca para mover de mesa; "×" lo saca. */
+    .seat { display: flex; align-items: stretch; gap: 0.35rem; min-width: 0; }
+    .seat .guest { flex: 1 1 auto; }
+    .btn-sacar {
+      flex: 0 0 44px;
+      width: 44px;
+      padding: 0;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(156, 74, 59, 0.35);
+      background: transparent;
+      color: var(--color-error);
+      font-size: 1.2rem;
+      line-height: 1;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .btn-sacar:hover { background: var(--color-error); color: #fff; }
+
+    /* Editar / Borrar mesa, al pie y separados de los invitados. */
+    .mesa__foot {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.2rem;
+      padding-top: 0.6rem;
+      border-top: 1px dashed var(--color-fondo-secundario);
+    }
+    .mesa__edit { display: flex; flex-direction: column; gap: 0.5rem; }
+    .mesa__edit .fila { display: flex; gap: 0.5rem; }
+    .mesa__edit .field { width: 100%; }
+    .mesa__edit .campo-capacidad { flex: 0 0 5.5rem; }
+    .mesa__edit .error { font-size: 0.8rem; color: var(--color-error); }
+
+    /* Selector de mesa (al tocar un invitado). */
+    dialog.picker {
+      width: min(26rem, calc(100vw - 2rem));
+      max-height: calc(100vh - 2rem);
+      margin: auto;
+      padding: 1.25rem;
+      border: 1px solid var(--color-texto);
+      border-radius: 12px;
+      background: var(--color-fondo);
+      color: var(--color-texto);
+    }
+    dialog.picker::backdrop { background: rgba(38, 43, 29, 0.45); }
+    .picker__sub { font-size: 0.85rem; color: var(--color-texto-claro); margin: 0.25rem 0 0.9rem; }
+    .picker__list { display: flex; flex-direction: column; gap: 0.45rem; max-height: 55vh; overflow-y: auto; padding: 2px; }
+    .picker__mesa {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+      text-align: left;
+      text-transform: none;
+      letter-spacing: normal;
+      font-size: 0.95rem;
+      border-radius: 0.5rem;
+      border-color: var(--color-fondo-secundario);
+      background: #fff;
+      color: var(--color-texto);
+    }
+    .picker__mesa:hover:not(:disabled) { border-color: var(--color-detalle); }
+    .picker__mesa small { font-size: 0.78rem; color: var(--color-texto-claro); white-space: nowrap; }
+    .picker__mesa span { overflow-wrap: anywhere; min-width: 0; }
+    .picker__actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; margin-top: 1rem; }
+
+    @media (min-width: 860px) {
+      .mesas-layout { grid-template-columns: 290px minmax(0, 1fr); }
+      .sin-mesa { position: sticky; top: 1rem; }
+      .sin-mesa .guest-list { max-height: calc(100vh - 14rem); }
+    }
 
     /* Mobile: cada respuesta pasa a ser una tarjeta en vez de una tabla con scroll lateral */
     @media (max-width: 640px) {
@@ -256,6 +497,7 @@
         border-top: 1px dashed var(--color-fondo-secundario);
         text-align: right;
       }
+      .tab { flex: 1 1 0; }
     }
   </style>
 </head>
@@ -290,12 +532,11 @@
     <section id="view-admin" hidden>
       <div class="topbar">
         <div>
-          <h1>Confirmaciones</h1>
+          <h1>Admin RSVP</h1>
           <p class="subtitle" id="last-update"></p>
         </div>
         <div class="actions">
           <button type="button" class="btn-solid" id="btn-refresh">Actualizar</button>
-          <button type="button" class="btn-outline" id="btn-csv">Descargar CSV</button>
         </div>
       </div>
       <p class="session">
@@ -303,38 +544,96 @@
         <button type="button" class="btn-link" id="btn-logout">Cerrar sesión</button>
       </p>
 
-      <section class="stats" id="stats" aria-label="Resumen" style="margin-top: 1rem;"></section>
-
-      <div class="status" id="status" hidden></div>
-
-      <div class="toolbar">
-        <input
-          type="search"
-          class="search"
-          id="search"
-          placeholder="Buscar por nombre…"
-          aria-label="Buscar por nombre"
-          autocomplete="off">
-        <span class="count" id="count"></span>
+      <div class="tabs" role="tablist" aria-label="Secciones">
+        <button type="button" class="tab" role="tab" id="tab-confirmaciones" aria-selected="true" aria-controls="panel-confirmaciones">Confirmaciones</button>
+        <button type="button" class="tab" role="tab" id="tab-mesas" aria-selected="false" aria-controls="panel-mesas" tabindex="-1">Mesas</button>
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Nombre</th>
-              <th scope="col">Menú</th>
-              <th scope="col">Canción</th>
-              <th scope="col">Mensaje</th>
-              <th scope="col">Fecha</th>
-              <th scope="col"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Acciones</span></th>
-            </tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
+      <div class="status" id="status" role="alert" hidden></div>
+
+      <!-- ===== Pestaña: Confirmaciones ===== -->
+      <section id="panel-confirmaciones" role="tabpanel" aria-labelledby="tab-confirmaciones">
+        <section class="stats" id="stats" aria-label="Resumen"></section>
+
+        <div class="toolbar">
+          <input
+            type="search"
+            class="field search"
+            id="search"
+            placeholder="Buscar por nombre…"
+            aria-label="Buscar por nombre"
+            autocomplete="off">
+          <span class="count" id="count"></span>
+          <button type="button" class="btn-outline" id="btn-csv">Descargar CSV</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Nombre</th>
+                <th scope="col">Menú</th>
+                <th scope="col">Canción</th>
+                <th scope="col">Mensaje</th>
+                <th scope="col">Fecha</th>
+                <th scope="col"><span class="visually-hidden">Acciones</span></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== Pestaña: Mesas ===== -->
+      <section id="panel-mesas" role="tabpanel" aria-labelledby="tab-mesas" hidden>
+        <div class="mesas-resumen" id="mesas-resumen"></div>
+
+        <div class="mesas-layout">
+          <aside class="panel sin-mesa" id="sin-mesa" aria-labelledby="sin-mesa-titulo">
+            <div class="panel__head">
+              <h2 id="sin-mesa-titulo">Sin mesa</h2>
+              <span class="badge" id="sin-mesa-count">0</span>
+            </div>
+            <input
+              type="search"
+              class="field search"
+              id="search-sin-mesa"
+              placeholder="Buscar invitado…"
+              aria-label="Buscar invitado sin mesa"
+              autocomplete="off">
+            <p class="hint">Tocá un nombre para elegir su mesa. En la compu también podés arrastrarlo.</p>
+            <ul class="guest-list" id="sin-mesa-list"></ul>
+          </aside>
+
+          <div class="mesas-main">
+            <form class="mesa-form" id="mesa-form" novalidate>
+              <label class="campo-nombre">
+                Nombre de la mesa
+                <input class="field" id="mesa-nombre" maxlength="60" autocomplete="off" required>
+              </label>
+              <label class="campo-capacidad">
+                Lugares
+                <input class="field" id="mesa-capacidad" type="number" inputmode="numeric" min="1" max="30" step="1" value="10" required>
+              </label>
+              <button type="submit" class="btn-solid">Crear mesa</button>
+            </form>
+            <div class="mesas-grid" id="mesas-grid"></div>
+          </div>
+        </div>
+      </section>
     </section>
   </div>
+
+  <!-- Selector de mesa: se abre al tocar un invitado (sin mesa o sentado). -->
+  <dialog class="picker" id="picker" aria-labelledby="picker-titulo">
+    <h2 id="picker-titulo"></h2>
+    <p class="picker__sub" id="picker-sub"></p>
+    <div class="picker__list" id="picker-list"></div>
+    <div class="picker__actions">
+      <button type="button" class="btn-delete" id="picker-sacar">Sacar de la mesa</button>
+      <button type="button" class="btn-outline" id="picker-cancelar">Cancelar</button>
+    </div>
+  </dialog>
 
   <script type="module">
     import { firebaseConfig } from './firebase-config.js';
@@ -353,9 +652,17 @@
       collection,
       query,
       orderBy,
+      where,
       getDocs,
+      onSnapshot,
       doc,
+      addDoc,
+      updateDoc,
       deleteDoc,
+      writeBatch,
+      arrayUnion,
+      arrayRemove,
+      serverTimestamp,
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
     const app = initializeApp(firebaseConfig);
@@ -370,7 +677,22 @@
       admin: $('view-admin'),
     };
 
-    let allRows = [];
+    const CAPACIDAD_MIN = 1;
+    const CAPACIDAD_MAX = 30;
+
+    // Estado en memoria, alimentado en tiempo real por onSnapshot.
+    let allRows = []; // confirmaciones ("rsvps")
+    let mesas = []; // mesas ("mesas"), ordenadas por "orden"
+    let rsvpsLoaded = false;
+    let mesasLoaded = false;
+    let unsubRsvps = null;
+    let unsubMesas = null;
+
+    // Mesa en modo edición (y lo que se va tipeando), para no perder el
+    // formulario cuando llega un cambio en tiempo real y se redibuja todo.
+    let editing = null; // { id, nombre, capacidad, error }
+    let draggingId = null; // invitado que se está arrastrando
+    let pickerGuestId = null; // invitado abierto en el selector
 
     function show(name) {
       Object.entries(views).forEach(([key, el]) => { el.hidden = key !== name; });
@@ -378,11 +700,16 @@
 
     // --- Helpers -----------------------------------------------------------
 
+    // Rango Unicode de tildes/diacríticos combinables (U+0300 a U+036F).
+    // Se arma con fromCharCode para no depender de caracteres invisibles
+    // guardados literalmente en el archivo.
+    const DIACRITICOS = new RegExp(`[${String.fromCharCode(0x300)}-${String.fromCharCode(0x36f)}]`, 'g');
+
     // Para buscar sin importar mayúsculas ni tildes ("perez" encuentra "Pérez").
     function fold(str) {
       return String(str || '')
         .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
+        .replace(DIACRITICOS, '')
         .toLowerCase()
         .trim();
     }
@@ -410,7 +737,55 @@
       $('status').textContent = message || '';
     }
 
-    // --- Render ------------------------------------------------------------
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function rowById(id) {
+      return allRows.find((r) => r.id === id);
+    }
+
+    function mesaById(id) {
+      return mesas.find((m) => m.id === id);
+    }
+
+    // Mesa en la que está sentado cada invitado.
+    function seatMap() {
+      const map = new Map();
+      mesas.forEach((m) => m.invitados.forEach((id) => map.set(id, m.id)));
+      return map;
+    }
+
+    function libres(mesa) {
+      return mesa.capacidad - mesa.invitados.length;
+    }
+
+    function plural(n, uno, varios) {
+      return `${n} ${n === 1 ? uno : varios}`;
+    }
+
+    // --- Pestañas ----------------------------------------------------------
+
+    const tabs = {
+      confirmaciones: { tab: $('tab-confirmaciones'), panel: $('panel-confirmaciones') },
+      mesas: { tab: $('tab-mesas'), panel: $('panel-mesas') },
+    };
+
+    function selectTab(name) {
+      Object.entries(tabs).forEach(([key, { tab, panel }]) => {
+        const active = key === name;
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+        panel.hidden = !active;
+      });
+      setStatus('');
+      try { localStorage.setItem('admin-tab', name); } catch (e) { /* sin storage */ }
+    }
+
+    // --- Render: confirmaciones -------------------------------------------
 
     function renderStats() {
       // Menu puede traer varias opciones separadas por coma: cada una suma.
@@ -425,15 +800,8 @@
         .forEach(([label, value]) => cards.push({ value, label }));
 
       $('stats').replaceChildren(...cards.map(({ value, label, main }) => {
-        const card = document.createElement('div');
-        card.className = main ? 'stat stat--main' : 'stat';
-        const v = document.createElement('div');
-        v.className = 'stat__value';
-        v.textContent = value;
-        const l = document.createElement('div');
-        l.className = 'stat__label';
-        l.textContent = label;
-        card.append(v, l);
+        const card = el('div', main ? 'stat stat--main' : 'stat');
+        card.append(el('div', 'stat__value', value), el('div', 'stat__label', label));
         return card;
       }));
     }
@@ -441,10 +809,8 @@
     // Todo lo que escriben los invitados se inserta con textContent, nunca
     // como HTML, para que un mensaje con contenido raro no rompa la página.
     function cell(className, label, text) {
-      const td = document.createElement('td');
-      td.className = className;
+      const td = el('td', className, isEmpty(text) ? '—' : text);
       td.dataset.label = label;
-      td.textContent = isEmpty(text) ? '—' : text;
       return td;
     }
 
@@ -454,11 +820,10 @@
       const text = String(value || '').trim();
       if (/^https?:\/\//i.test(text)) {
         td.textContent = '';
-        const a = document.createElement('a');
+        const a = el('a', '', text.length > 45 ? `${text.slice(0, 45)}…` : text);
         a.href = text;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
-        a.textContent = text.length > 45 ? `${text.slice(0, 45)}…` : text;
         a.title = text;
         td.append(a);
       }
@@ -466,12 +831,9 @@
     }
 
     function deleteCell(row) {
-      const td = document.createElement('td');
-      td.className = 'acciones';
-      const btn = document.createElement('button');
+      const td = el('td', 'acciones');
+      const btn = el('button', 'btn-delete', 'Eliminar');
       btn.type = 'button';
-      btn.className = 'btn-delete';
-      btn.textContent = 'Eliminar';
       btn.setAttribute('aria-label', `Eliminar la confirmación de ${row.nombre}`);
       btn.addEventListener('click', () => deleteRow(row, btn));
       td.append(btn);
@@ -489,18 +851,16 @@
       $('count').textContent = `${rows.length} de ${allRows.length} confirmaciones`;
 
       if (!rows.length) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
+        const tr = el('tr');
+        const td = el('td', 'empty', allRows.length ? 'Ningún nombre coincide con la búsqueda.' : 'Todavía no hay confirmaciones.');
         td.colSpan = 6;
-        td.className = 'empty';
-        td.textContent = allRows.length ? 'Ningún nombre coincide con la búsqueda.' : 'Todavía no hay confirmaciones.';
         tr.append(td);
         $('rows').replaceChildren(tr);
         return;
       }
 
       $('rows').replaceChildren(...rows.map((row) => {
-        const tr = document.createElement('tr');
+        const tr = el('tr');
         tr.append(
           cell('nombre', 'Nombre', row.nombre),
           cell('menu', 'Menú', row.menu),
@@ -513,65 +873,429 @@
       }));
     }
 
+    // --- Render: mesas -----------------------------------------------------
+
+    // Ficha de un invitado: se toca (abre el selector) o se arrastra.
+    function guestChip(id) {
+      const row = rowById(id);
+      const chip = el('div', 'guest');
+      chip.dataset.id = id;
+      chip.tabIndex = 0;
+      chip.setAttribute('role', 'button');
+      chip.draggable = true;
+
+      if (row) {
+        chip.append(el('span', 'guest__nombre', row.nombre));
+        if (!isEmpty(row.menu)) chip.append(el('span', 'guest__menu', row.menu));
+        chip.setAttribute('aria-label', `${row.nombre}: elegir mesa`);
+      } else {
+        // El ID está en una mesa pero ya no hay confirmación con ese ID
+        // (por ejemplo, se borró desde la consola de Firebase).
+        chip.classList.add('guest--huerfano');
+        chip.append(el('span', 'guest__nombre', rsvpsLoaded ? `${id} (ya no está confirmado)` : id));
+        chip.setAttribute('aria-label', `${id}: elegir mesa`);
+      }
+
+      chip.addEventListener('click', () => openPicker(id));
+      chip.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openPicker(id);
+        }
+      });
+      chip.addEventListener('dragstart', (e) => {
+        draggingId = id;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', id);
+        chip.classList.add('is-dragging');
+      });
+      chip.addEventListener('dragend', () => {
+        draggingId = null;
+        chip.classList.remove('is-dragging');
+        document.querySelectorAll('.is-drop-target, .is-drop-full').forEach((n) => n.classList.remove('is-drop-target', 'is-drop-full'));
+      });
+      return chip;
+    }
+
+    function renderSinMesa() {
+      const seats = seatMap();
+      const q = fold($('search-sin-mesa').value);
+      const sinMesa = allRows
+        .filter((r) => !seats.has(r.id))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      const visibles = sinMesa.filter((r) => !q || fold(r.nombre).includes(q));
+
+      $('sin-mesa-count').textContent = sinMesa.length;
+      const list = $('sin-mesa-list');
+      if (!visibles.length) {
+        list.replaceChildren(el('li', 'guest-list__empty',
+          sinMesa.length ? 'Nadie coincide con la búsqueda.' : (allRows.length ? '¡Todos los confirmados tienen mesa!' : 'Todavía no hay confirmaciones.')));
+        return;
+      }
+      list.replaceChildren(...visibles.map((r) => {
+        const li = el('li');
+        li.append(guestChip(r.id));
+        return li;
+      }));
+    }
+
+    function mesaCard(mesa) {
+      const card = el('article', 'mesa');
+      card.dataset.mesaId = mesa.id;
+      const full = libres(mesa) <= 0;
+      if (full) card.classList.add('is-full');
+
+      // Modo edición: nombre + capacidad.
+      if (editing && editing.id === mesa.id) {
+        const form = el('form', 'mesa__edit');
+        form.noValidate = true;
+        const nombre = el('input', 'field');
+        nombre.value = editing.nombre;
+        nombre.maxLength = 60;
+        nombre.setAttribute('aria-label', 'Nombre de la mesa');
+        nombre.addEventListener('input', () => { editing.nombre = nombre.value; });
+        const capacidad = el('input', 'field campo-capacidad');
+        capacidad.type = 'number';
+        capacidad.inputMode = 'numeric';
+        capacidad.min = String(CAPACIDAD_MIN);
+        capacidad.max = String(CAPACIDAD_MAX);
+        capacidad.value = editing.capacidad;
+        capacidad.setAttribute('aria-label', 'Lugares');
+        capacidad.addEventListener('input', () => { editing.capacidad = capacidad.value; });
+        const fila = el('div', 'fila');
+        fila.append(nombre, capacidad);
+        form.append(fila);
+        if (editing.error) form.append(el('p', 'error', editing.error));
+        const acciones = el('div', 'actions');
+        const guardar = el('button', 'btn-solid', 'Guardar');
+        guardar.type = 'submit';
+        const cancelar = el('button', 'btn-outline', 'Cancelar');
+        cancelar.type = 'button';
+        cancelar.addEventListener('click', () => { editing = null; renderMesas(); });
+        acciones.append(guardar, cancelar);
+        form.append(acciones);
+        form.addEventListener('submit', (e) => { e.preventDefault(); saveMesa(mesa); });
+        card.append(form);
+        return card;
+      }
+
+      const head = el('div', 'mesa__head');
+      head.append(el('h3', 'mesa__nombre', mesa.nombre));
+      const ocupacion = el('span', 'mesa__ocupacion',
+        `${mesa.invitados.length}/${mesa.capacidad} · ${full ? 'completa' : plural(libres(mesa), 'libre', 'libres')}`);
+      if (full) ocupacion.classList.add('is-full');
+      head.append(ocupacion);
+
+      const barra = el('div', 'mesa__barra');
+      const relleno = el('span');
+      relleno.style.width = `${Math.min(100, (mesa.invitados.length / mesa.capacidad) * 100)}%`;
+      barra.append(relleno);
+      barra.setAttribute('aria-hidden', 'true');
+
+      card.append(head, barra);
+
+      if (!mesa.invitados.length) {
+        card.append(el('p', 'mesa__vacia', 'Sin invitados todavía. Arrastrá o tocá un nombre de "Sin mesa".'));
+      } else {
+        const list = el('ul', 'guest-list');
+        mesa.invitados.forEach((id) => {
+          const li = el('li', 'seat');
+          const sacar = el('button', 'btn-sacar', '×');
+          sacar.type = 'button';
+          const nombre = rowById(id) ? rowById(id).nombre : id;
+          sacar.setAttribute('aria-label', `Sacar a ${nombre} de ${mesa.nombre}`);
+          sacar.title = 'Sacar de la mesa';
+          sacar.addEventListener('click', () => assign(id, null));
+          li.append(guestChip(id), sacar);
+          list.append(li);
+        });
+        card.append(list);
+      }
+
+      const foot = el('div', 'mesa__foot');
+      const editar = el('button', 'btn-link', 'Editar');
+      editar.type = 'button';
+      editar.setAttribute('aria-label', `Editar ${mesa.nombre}`);
+      editar.addEventListener('click', () => {
+        editing = { id: mesa.id, nombre: mesa.nombre, capacidad: String(mesa.capacidad), error: '' };
+        renderMesas();
+        const input = document.querySelector(`[data-mesa-id="${mesa.id}"] input`);
+        if (input) input.focus();
+      });
+      const borrar = el('button', 'btn-delete', 'Borrar mesa');
+      borrar.type = 'button';
+      borrar.addEventListener('click', () => deleteMesa(mesa));
+      foot.append(editar, borrar);
+      card.append(foot);
+
+      // Soltar acá (escritorio). Si está completa, no acepta y se marca.
+      card.addEventListener('dragover', (e) => {
+        if (!draggingId || mesa.invitados.includes(draggingId)) return;
+        if (libres(mesa) <= 0) {
+          card.classList.add('is-drop-full');
+          return; // sin preventDefault = no se puede soltar
+        }
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        card.classList.add('is-drop-target');
+      });
+      card.addEventListener('dragleave', (e) => {
+        if (!card.contains(e.relatedTarget)) card.classList.remove('is-drop-target', 'is-drop-full');
+      });
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.classList.remove('is-drop-target', 'is-drop-full');
+        const id = draggingId || e.dataTransfer.getData('text/plain');
+        if (id) assign(id, mesa.id);
+      });
+
+      return card;
+    }
+
+    function renderMesas() {
+      const grid = $('mesas-grid');
+      if (!mesas.length) {
+        grid.replaceChildren(el('p', 'guest-list__empty', 'Todavía no hay mesas. Creá la primera con el formulario de arriba.'));
+      } else {
+        grid.replaceChildren(...mesas.map(mesaCard));
+      }
+
+      const sentados = mesas.reduce((n, m) => n + m.invitados.length, 0);
+      const lugares = mesas.reduce((n, m) => n + m.capacidad, 0);
+      const seats = seatMap();
+      const sinMesa = allRows.filter((r) => !seats.has(r.id)).length;
+      const resumen = $('mesas-resumen');
+      resumen.replaceChildren(
+        ...[
+          [plural(mesas.length, 'mesa', 'mesas')],
+          [`${sentados} de ${lugares} lugares ocupados`],
+          [plural(Math.max(0, lugares - sentados), 'lugar libre', 'lugares libres')],
+          [`${sinMesa} sin mesa`],
+        ].map(([text]) => {
+          const span = el('span');
+          const [n, ...rest] = text.split(' ');
+          span.append(el('strong', '', n), ` ${rest.join(' ')}`);
+          return span;
+        })
+      );
+
+      const nombreInput = $('mesa-nombre');
+      if (!nombreInput.value) nombreInput.placeholder = `Mesa ${mesas.length + 1}`;
+
+      renderSinMesa();
+      if ($('picker').open) renderPicker();
+    }
+
     function renderAll() {
       renderStats();
       renderTable();
+      renderMesas();
     }
 
-    // --- Datos -------------------------------------------------------------
+    // --- Selector de mesa (tocar un invitado) ------------------------------
 
-    async function load() {
-      const refresh = $('btn-refresh');
-      refresh.disabled = true;
-      refresh.textContent = 'Cargando…';
-      setStatus('');
+    function openPicker(id) {
+      pickerGuestId = id;
+      renderPicker();
+      if (!$('picker').open) $('picker').showModal();
+    }
 
-      try {
-        const snap = await getDocs(query(collection(db, 'rsvps'), orderBy('fecha', 'desc')));
-        allRows = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            nombre: data.nombre || d.id,
-            menu: data.menu || '',
-            cancion: data.cancion || '',
-            mensaje: data.mensaje || '',
-            fecha: data.fecha && typeof data.fecha.toDate === 'function' ? data.fecha.toDate() : null,
-          };
+    function closePicker() {
+      pickerGuestId = null;
+      if ($('picker').open) $('picker').close();
+    }
+
+    function renderPicker() {
+      const id = pickerGuestId;
+      if (!id) return;
+      const row = rowById(id);
+      const actual = mesaById(seatMap().get(id));
+      $('picker-titulo').textContent = row ? row.nombre : id;
+      $('picker-sub').textContent = actual ? `Está en "${actual.nombre}". Elegí otra mesa para moverlo.` : 'Elegí la mesa:';
+      $('picker-sacar').hidden = !actual;
+
+      const list = $('picker-list');
+      if (!mesas.length) {
+        list.replaceChildren(el('p', 'guest-list__empty', 'Primero creá una mesa.'));
+        return;
+      }
+      list.replaceChildren(...mesas.map((mesa) => {
+        const btn = el('button', 'btn-outline picker__mesa');
+        btn.type = 'button';
+        const esActual = actual && actual.id === mesa.id;
+        const full = libres(mesa) <= 0;
+        btn.append(
+          el('span', '', mesa.nombre),
+          el('small', '', esActual ? 'mesa actual' : (full ? 'completa' : plural(libres(mesa), 'libre', 'libres')))
+        );
+        btn.disabled = esActual || full;
+        btn.addEventListener('click', () => {
+          closePicker();
+          assign(id, mesa.id);
         });
-        show('admin');
-        renderAll();
-        $('last-update').textContent = `Actualizado: ${formatFecha(new Date())}`;
+        return btn;
+      }));
+    }
+
+    $('picker-cancelar').addEventListener('click', closePicker);
+    $('picker-sacar').addEventListener('click', () => {
+      const id = pickerGuestId;
+      closePicker();
+      if (id) assign(id, null);
+    });
+    // Tocar fuera del cuadro (sobre el fondo oscuro) también lo cierra. Se
+    // mira la posición del toque y no solo e.target: un toque en el borde
+    // interno del cuadro también llega con e.target === dialog.
+    $('picker').addEventListener('click', (e) => {
+      if (e.target !== $('picker')) return;
+      const r = $('picker').getBoundingClientRect();
+      const fuera = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+      if (fuera) closePicker();
+    });
+    $('picker').addEventListener('close', () => { pickerGuestId = null; });
+
+    // --- Escrituras: mesas -------------------------------------------------
+
+    // Sienta a un invitado en una mesa (o lo saca, si targetId es null).
+    // Sale de cualquier otra mesa en la que estuviera, en un solo lote
+    // atómico: o se hace todo, o nada. La capacidad la controla también el
+    // servidor (las reglas no dejan "invitados" más largo que "capacidad"),
+    // así que si Lara y vos llenan la misma mesa a la vez, el segundo
+    // cambio se rechaza en vez de pasarse de lugares.
+    async function assign(guestId, targetId) {
+      const target = targetId ? mesaById(targetId) : null;
+      if (targetId && !target) return;
+      if (target && target.invitados.includes(guestId)) return;
+      if (target && libres(target) <= 0) {
+        setStatus(`"${target.nombre}" está completa.`);
+        return;
+      }
+      const origenes = mesas.filter((m) => m.invitados.includes(guestId) && m.id !== targetId);
+      if (!target && !origenes.length) return;
+
+      setStatus('');
+      const batch = writeBatch(db);
+      origenes.forEach((m) => batch.update(doc(db, 'mesas', m.id), {
+        invitados: arrayRemove(guestId),
+        actualizado: serverTimestamp(),
+      }));
+      if (target) {
+        batch.update(doc(db, 'mesas', target.id), {
+          invitados: arrayUnion(guestId),
+          actualizado: serverTimestamp(),
+        });
+      }
+      try {
+        await batch.commit();
       } catch (err) {
-        // Las reglas solo dejan leer a los admins: cualquier otra cuenta
-        // recibe permission-denied.
-        if (err.code === 'permission-denied') {
-          $('denied-email').textContent = auth.currentUser ? auth.currentUser.email : '';
-          show('denied');
-        } else {
-          console.error(err);
-          show('admin');
-          setStatus(`No se pudieron cargar las confirmaciones (${err.message}). Revisá la conexión y probá "Actualizar".`);
-        }
-      } finally {
-        refresh.disabled = false;
-        refresh.textContent = 'Actualizar';
+        console.error(err);
+        setStatus(err.code === 'permission-denied' && target
+          ? `No se pudo: "${target.nombre}" se llenó mientras tanto (alguien más la estaba armando).`
+          : `No se pudo guardar el cambio (${err.message}).`);
       }
     }
 
+    function parseCapacidad(value) {
+      const n = Number(value);
+      return Number.isInteger(n) && n >= CAPACIDAD_MIN && n <= CAPACIDAD_MAX ? n : null;
+    }
+
+    async function createMesa(e) {
+      e.preventDefault();
+      const nombreInput = $('mesa-nombre');
+      const nombre = nombreInput.value.trim() || nombreInput.placeholder || `Mesa ${mesas.length + 1}`;
+      const capacidad = parseCapacidad($('mesa-capacidad').value);
+      if (!capacidad) {
+        setStatus(`La cantidad de lugares tiene que ser un número entero entre ${CAPACIDAD_MIN} y ${CAPACIDAD_MAX}.`);
+        $('mesa-capacidad').focus();
+        return;
+      }
+      setStatus('');
+      const orden = mesas.reduce((max, m) => Math.max(max, m.orden || 0), 0) + 1;
+      nombreInput.value = '';
+      try {
+        await addDoc(collection(db, 'mesas'), {
+          nombre: nombre.slice(0, 60),
+          capacidad,
+          invitados: [],
+          orden,
+          actualizado: serverTimestamp(),
+        });
+      } catch (err) {
+        console.error(err);
+        setStatus(`No se pudo crear la mesa (${err.message}).`);
+      }
+    }
+
+    async function saveMesa(mesa) {
+      const nombre = editing.nombre.trim();
+      const capacidad = parseCapacidad(editing.capacidad);
+      const actual = mesaById(mesa.id) || mesa;
+      let error = '';
+      if (!nombre) error = 'Poné un nombre.';
+      else if (!capacidad) error = `Los lugares tienen que ser un número entre ${CAPACIDAD_MIN} y ${CAPACIDAD_MAX}.`;
+      else if (capacidad < actual.invitados.length) {
+        error = `Tiene ${plural(actual.invitados.length, 'invitado sentado', 'invitados sentados')}: sacá a alguien antes de bajar a ${capacidad}.`;
+      }
+      if (error) {
+        editing.error = error;
+        renderMesas();
+        return;
+      }
+      editing = null;
+      renderMesas();
+      try {
+        await updateDoc(doc(db, 'mesas', mesa.id), {
+          nombre: nombre.slice(0, 60),
+          capacidad,
+          actualizado: serverTimestamp(),
+        });
+      } catch (err) {
+        console.error(err);
+        setStatus(`No se pudo guardar "${nombre}" (${err.message}).`);
+      }
+    }
+
+    async function deleteMesa(mesa) {
+      const n = mesa.invitados.length;
+      const ok = confirm(
+        `¿Borrar "${mesa.nombre}"?` +
+        (n ? `\n\n${plural(n, 'invitado vuelve', 'invitados vuelven')} a "Sin mesa".` : '')
+      );
+      if (!ok) return;
+      try {
+        await deleteDoc(doc(db, 'mesas', mesa.id));
+      } catch (err) {
+        console.error(err);
+        setStatus(`No se pudo borrar "${mesa.nombre}" (${err.message}).`);
+      }
+    }
+
+    // --- Escrituras: confirmaciones ----------------------------------------
+
+    // Borra la confirmación y, en el mismo lote, saca su ID de la mesa en
+    // la que esté sentado (se busca en Firestore, no solo en memoria).
     async function deleteRow(row, btn) {
+      const mesa = mesaById(seatMap().get(row.id));
       const ok = confirm(
         `¿Eliminar la confirmación de ${row.nombre}?\n\n` +
-        'No se puede deshacer, y esa persona va a poder volver a completar el formulario.'
+        'No se puede deshacer, y esa persona va a poder volver a completar el formulario.' +
+        (mesa ? `\nTambién se la va a sacar de "${mesa.nombre}".` : '')
       );
       if (!ok) return;
 
       btn.disabled = true;
       btn.textContent = 'Eliminando…';
       try {
-        await deleteDoc(doc(db, 'rsvps', row.id));
-        allRows = allRows.filter((r) => r.id !== row.id);
-        renderAll();
+        const batch = writeBatch(db);
+        batch.delete(doc(db, 'rsvps', row.id));
+        const enMesas = await getDocs(query(collection(db, 'mesas'), where('invitados', 'array-contains', row.id)));
+        enMesas.forEach((m) => batch.update(m.ref, {
+          invitados: arrayRemove(row.id),
+          actualizado: serverTimestamp(),
+        }));
+        await batch.commit();
+        // onSnapshot actualiza la lista solo.
       } catch (err) {
         console.error(err);
         setStatus(`No se pudo eliminar a ${row.nombre} (${err.message}).`);
@@ -582,9 +1306,11 @@
 
     // Exporta lo que se ve en pantalla (respeta la búsqueda).
     function downloadCsv() {
+      const seats = seatMap();
       const columns = [
         ['Nombre', (r) => r.nombre],
         ['Menu', (r) => r.menu],
+        ['Mesa', (r) => (mesaById(seats.get(r.id)) || {}).nombre || ''],
         ['Cancion', (r) => r.cancion],
         ['Mensaje', (r) => r.mensaje],
         ['Fecha', (r) => formatFecha(r.fecha)],
@@ -601,15 +1327,88 @@
       ];
       // BOM + ";" como separador: Excel en español lo abre con tildes y
       // columnas bien separadas sin pasos extra.
-      const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const BOM = String.fromCharCode(0xfeff);
+      const blob = new Blob([BOM + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = el('a');
       a.href = url;
       a.download = `rsvp-lara-seba-${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.append(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+    }
+
+    // --- Datos en tiempo real ----------------------------------------------
+
+    function stopListening() {
+      if (unsubRsvps) unsubRsvps();
+      if (unsubMesas) unsubMesas();
+      unsubRsvps = null;
+      unsubMesas = null;
+    }
+
+    function onDataError(err) {
+      // Las reglas solo dejan leer a los admins: cualquier otra cuenta
+      // recibe permission-denied.
+      if (err.code === 'permission-denied') {
+        stopListening();
+        $('denied-email').textContent = auth.currentUser ? auth.currentUser.email : '';
+        show('denied');
+        return;
+      }
+      console.error(err);
+      show('admin');
+      setStatus(`Se cortó la conexión con los datos (${err.message}). Revisá internet y tocá "Actualizar".`);
+    }
+
+    function markUpdated() {
+      $('last-update').textContent = `En vivo · actualizado ${formatFecha(new Date())}`;
+      if (rsvpsLoaded && mesasLoaded) show('admin');
+    }
+
+    // onSnapshot: cualquier cambio (un nuevo RSVP, o Lara moviendo a
+    // alguien de mesa) llega solo, sin recargar. "Actualizar" vuelve a
+    // conectar los listeners por si se cortó la conexión.
+    function listen() {
+      stopListening();
+      setStatus('');
+
+      unsubRsvps = onSnapshot(query(collection(db, 'rsvps'), orderBy('fecha', 'desc')), (snap) => {
+        allRows = snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            nombre: data.nombre || d.id,
+            menu: data.menu || '',
+            cancion: data.cancion || '',
+            mensaje: data.mensaje || '',
+            fecha: data.fecha && typeof data.fecha.toDate === 'function' ? data.fecha.toDate() : null,
+          };
+        });
+        rsvpsLoaded = true;
+        renderAll();
+        markUpdated();
+      }, onDataError);
+
+      unsubMesas = onSnapshot(query(collection(db, 'mesas'), orderBy('orden')), (snap) => {
+        mesas = snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            nombre: data.nombre || 'Sin nombre',
+            capacidad: Number(data.capacidad) || 0,
+            invitados: Array.isArray(data.invitados) ? data.invitados : [],
+            orden: Number(data.orden) || 0,
+          };
+        });
+        // Si la mesa que se estaba editando la borró otra persona, salimos
+        // del modo edición.
+        if (editing && !mesaById(editing.id)) editing = null;
+        mesasLoaded = true;
+        renderMesas();
+        markUpdated();
+      }, onDataError);
     }
 
     // --- Sesión ------------------------------------------------------------
@@ -668,21 +1467,64 @@
 
     onAuthStateChanged(auth, (user) => {
       if (!user) {
+        stopListening();
         allRows = [];
+        mesas = [];
+        rsvpsLoaded = false;
+        mesasLoaded = false;
+        editing = null;
+        closePicker();
         show('login');
         return;
       }
       $('user-email').textContent = user.email;
       show('loading');
-      load();
+      listen();
     });
+
+    // --- Eventos -----------------------------------------------------------
 
     $('btn-login').addEventListener('click', login);
     $('btn-logout').addEventListener('click', logout);
     $('btn-logout-denied').addEventListener('click', logout);
-    $('btn-refresh').addEventListener('click', load);
+    $('btn-refresh').addEventListener('click', listen);
     $('btn-csv').addEventListener('click', downloadCsv);
     $('search').addEventListener('input', renderTable);
+    $('search-sin-mesa').addEventListener('input', renderSinMesa);
+    $('mesa-form').addEventListener('submit', createMesa);
+
+    $('tab-confirmaciones').addEventListener('click', () => selectTab('confirmaciones'));
+    $('tab-mesas').addEventListener('click', () => selectTab('mesas'));
+    // Flechas izquierda/derecha para moverse entre pestañas (patrón ARIA).
+    $('tab-confirmaciones').parentElement.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const next = $('tab-mesas').getAttribute('aria-selected') === 'true' ? 'confirmaciones' : 'mesas';
+      selectTab(next);
+      tabs[next].tab.focus();
+    });
+
+    // Soltar sobre "Sin mesa" = sacarlo de su mesa (escritorio).
+    const sinMesaPanel = $('sin-mesa');
+    sinMesaPanel.addEventListener('dragover', (e) => {
+      if (!draggingId || !seatMap().has(draggingId)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      sinMesaPanel.classList.add('is-drop-target');
+    });
+    sinMesaPanel.addEventListener('dragleave', (e) => {
+      if (!sinMesaPanel.contains(e.relatedTarget)) sinMesaPanel.classList.remove('is-drop-target');
+    });
+    sinMesaPanel.addEventListener('drop', (e) => {
+      e.preventDefault();
+      sinMesaPanel.classList.remove('is-drop-target');
+      const id = draggingId || e.dataTransfer.getData('text/plain');
+      if (id) assign(id, null);
+    });
+
+    // Recordar la última pestaña usada.
+    try {
+      if (localStorage.getItem('admin-tab') === 'mesas') selectTab('mesas');
+    } catch (e) { /* sin storage */ }
   </script>
 </body>
 </html>
