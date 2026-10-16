@@ -67,8 +67,8 @@
     .btn-link {
       background: none;
       border: none;
-      padding: 0.5rem 0.25rem;
-      min-height: 0;
+      padding: 0 0.5rem;
+      min-height: 44px; /* área táctil cómoda aunque se vea como un link */
       text-transform: none;
       letter-spacing: normal;
       font-size: 0.85rem;
@@ -80,9 +80,9 @@
       background: transparent;
       color: var(--color-error);
       border-color: rgba(156, 74, 59, 0.45);
-      padding: 0.45rem 0.9rem;
-      min-height: 40px;
-      font-size: 0.7rem;
+      padding: 0.45rem 1rem;
+      min-height: 44px;
+      font-size: 0.72rem;
     }
     .btn-delete:hover { background: var(--color-error); color: #fff; border-color: var(--color-error); }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -116,12 +116,21 @@
       margin-bottom: 1.5rem;
     }
     .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
-    .session { font-size: 0.8rem; color: var(--color-texto-claro); word-break: break-all; }
+    .session {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      column-gap: 0.25rem;
+      font-size: 0.8rem;
+      color: var(--color-texto-claro);
+    }
+    .session #user-email { overflow-wrap: anywhere; }
 
     /* Contadores */
     .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      /* 130px: entran 2 contadores por fila incluso en 320px de ancho. */
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
       gap: 0.75rem;
       margin-bottom: 1.5rem;
     }
@@ -189,6 +198,9 @@
       padding: 0.7rem 0.85rem;
       border-bottom: 1px solid var(--color-fondo-secundario);
     }
+    /* Un link o palabra larguísima sin espacios (ej: un link de Spotify
+       pegado en el mensaje) se corta en vez de estirar la tabla/tarjeta. */
+    td { overflow-wrap: anywhere; }
     th {
       background: var(--color-fondo-secundario);
       font-size: 0.72rem;
@@ -201,8 +213,10 @@
     td.nombre { font-weight: 600; white-space: nowrap; }
     td.fecha { white-space: nowrap; color: var(--color-texto-claro); }
     td.mensaje { min-width: 220px; white-space: pre-wrap; }
-    td.cancion { min-width: 160px; word-break: break-word; }
-    td.acciones { width: 1%; white-space: nowrap; }
+    td.cancion { min-width: 160px; }
+    /* Columna propia y con aire a la izquierda: "Eliminar" queda lejos
+       del resto de los datos y de los botones de arriba. */
+    td.acciones { width: 1%; white-space: nowrap; padding-left: 1.5rem; }
     td a { color: var(--color-texto); font-weight: 600; text-underline-offset: 3px; }
     .empty { text-align: center; color: var(--color-texto-claro); padding: 2rem 1rem; }
 
@@ -228,8 +242,20 @@
         color: var(--color-texto-claro);
       }
       td.nombre::before, td.acciones::before { display: none; }
-      td.nombre { font-size: 1.05rem; }
-      td.acciones { width: 100%; padding-top: 0.6rem; }
+      /* white-space: normal acá explícito: la regla de escritorio
+         "td.nombre { nowrap }" pesa más que el "td" genérico de arriba, y
+         un nombre largo se salía de la tarjeta en 320px. */
+      td.nombre { font-size: 1.05rem; white-space: normal; }
+      td.fecha { white-space: normal; }
+      /* En la tarjeta, "Eliminar" va al pie, separado por una línea y
+         alineado a la derecha: lejos del pulgar mientras se scrollea. */
+      td.acciones {
+        width: 100%;
+        margin-top: 0.6rem;
+        padding: 0.75rem 1rem 0.4rem;
+        border-top: 1px dashed var(--color-fondo-secundario);
+        text-align: right;
+      }
     }
   </style>
 </head>
@@ -317,6 +343,8 @@
       getAuth,
       GoogleAuthProvider,
       signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
       signOut,
       onAuthStateChanged,
     } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -586,26 +614,53 @@
 
     // --- Sesión ------------------------------------------------------------
 
-    async function login() {
+    const LOGIN_ERRORS = {
+      'auth/unauthorized-domain': 'Este dominio no está autorizado en Firebase (Authentication > Configuración > Dominios autorizados).',
+      'auth/network-request-failed': 'Sin conexión. Revisá internet y probá de nuevo.',
+    };
+
+    function showLoginError(err) {
       const errorEl = $('login-error');
-      errorEl.hidden = true;
+      errorEl.textContent = LOGIN_ERRORS[err.code] || `No se pudo iniciar sesión (${err.code || err.message}).`;
+      errorEl.hidden = false;
+      show('login');
+    }
+
+    // Errores de la ventana emergente que justifican probar con
+    // redirección (la página entera va a Google y vuelve): ventana
+    // bloqueada, o un navegador/modo que no soporta popups (pasa en iOS
+    // Safari, sobre todo con la web guardada en la pantalla de inicio).
+    const POPUP_FALLBACK_ERRORS = [
+      'auth/popup-blocked',
+      'auth/operation-not-supported-in-this-environment',
+      'auth/web-storage-unsupported',
+    ];
+
+    function login() {
+      $('login-error').hidden = true;
       const provider = new GoogleAuthProvider();
       // Que siempre deje elegir cuenta (útil si el navegador tiene varias).
       provider.setCustomParameters({ prompt: 'select_account' });
-      try {
-        await signInWithPopup(auth, provider);
-        // onAuthStateChanged se encarga del resto.
-      } catch (err) {
+
+      // signInWithPopup se llama sin ningún await antes, en el mismo toque
+      // del botón: si no, iOS Safari bloquea la ventana por no venir de un
+      // gesto del usuario.
+      signInWithPopup(auth, provider).catch((err) => {
         if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
-        const messages = {
-          'auth/popup-blocked': 'El navegador bloqueó la ventana de Google. Permití ventanas emergentes para este sitio y probá de nuevo.',
-          'auth/unauthorized-domain': 'Este dominio no está autorizado en Firebase (Authentication > Configuración > Dominios autorizados).',
-          'auth/network-request-failed': 'Sin conexión. Revisá internet y probá de nuevo.',
-        };
-        errorEl.textContent = messages[err.code] || `No se pudo iniciar sesión (${err.code || err.message}).`;
-        errorEl.hidden = false;
-      }
+        if (POPUP_FALLBACK_ERRORS.includes(err.code)) {
+          show('loading');
+          signInWithRedirect(auth, provider).catch(showLoginError);
+          return;
+        }
+        showLoginError(err);
+      });
+      // Si sale bien, onAuthStateChanged se encarga del resto.
     }
+
+    // Al volver de la redirección a Google, acá aparece el resultado. Si
+    // salió bien no hay que hacer nada (onAuthStateChanged ya ve la
+    // sesión); si falló, mostramos el error en la pantalla de login.
+    getRedirectResult(auth).catch(showLoginError);
 
     function logout() {
       signOut(auth);
