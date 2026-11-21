@@ -73,7 +73,7 @@ function initCountdown() {
 // en el viewport.
 // ==========================================================================
 function initScrollReveal() {
-  const revealEls = document.querySelectorAll('section .reveal');
+  const revealEls = document.querySelectorAll('section .reveal, .site-footer .reveal');
   if (!revealEls.length) return;
 
   if (!('IntersectionObserver' in window)) {

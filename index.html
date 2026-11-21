@@ -34,7 +34,7 @@
   <!-- Google Fonts: Playfair Display (títulos) + Montserrat (texto) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Montserrat:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -483,18 +483,23 @@
 
   <!-- ===== FOOTER ===== -->
   <footer class="site-footer">
-    <img
-      src="assets/logos/L&S_logo.jpeg"
-      alt="Lara &amp; Seba"
-      class="site-footer__logo"
-      loading="lazy"
-      width="70">
-    <p class="site-footer__text">
-      <i class="bi bi-balloon-heart"></i>
-      Gracias por ser parte de este día tan especial 
-      <i class="bi bi-balloon-heart"></i>
-    </p>
-    <p class="site-footer__date">6 de marzo de 2027 <i class="bi bi-calendar3"></i></p>
+    <div class="site-footer__inner">
+      <img
+        src="assets/logos/L&S_logo.jpeg"
+        alt="Lara &amp; Seba"
+        class="site-footer__logo"
+        loading="lazy"
+        width="70">
+      <blockquote class="site-footer__verse reveal">
+        <p class="site-footer__verse-text">Y sobre todas estas cosas vestíos de amor, que es el vínculo perfecto.</p>
+        <cite class="site-footer__verse-ref">Colosenses 3:14</cite>
+      </blockquote>
+      <div class="site-footer__divider" aria-hidden="true"></div>
+      <div class="site-footer__bottom">
+        <p class="site-footer__date">6 de marzo de 2027</p>
+        <p class="site-footer__text">Gracias por ser parte de este día tan especial</p>
+      </div>
+    </div>
   </footer>
 
   <script src="script.js"></script>

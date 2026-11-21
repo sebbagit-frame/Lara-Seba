@@ -1323,17 +1323,25 @@ section {
 /* ==========================================================================
    FOOTER
    ========================================================================== */
+/* Mobile-first: todo apilado y centrado, con el versículo como lo más
+   grande. En 768px+ (ver RESPONSIVE) la fecha y la frase pasan a una fila
+   debajo de una línea de ancho completo. */
 .site-footer {
   background-color: var(--color-texto);
   text-align: center;
-  padding: 4rem 1.5rem;
+  /* Padding vertical más bajo en mobile para que el footer no quede alto. */
+  padding: 2.75rem 1.25rem;
+}
+
+.site-footer__inner {
+  max-width: 64rem;
+  margin: 0 auto;
 }
 
 .site-footer__logo {
-  /* clamp() en vez de un ancho fijo: en mobile (donde 8vw < 70px) se
-     queda en el mismo tamaño de siempre; recién crece pasado ~875px de
-     viewport, hasta un tope de 130px en pantallas grandes. */
-  width: clamp(70px, 8vw, 130px);
+  /* Un poco más chico en mobile para que el protagonista sea el versículo;
+     en desktop vuelve a clamp(70px, 8vw, 130px). */
+  width: 60px;
   height: auto;
   margin: 0 auto 1.5rem;
   border-radius: 50%;
@@ -1346,23 +1354,78 @@ section {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
-.site-footer__text {
-  font-family: var(--font-titulos);
+.site-footer__verse {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+}
+
+.site-footer__verse-text {
+  margin: 0;
+  font-family: 'Cormorant Garamond', Georgia, serif;
   font-style: italic;
-  /* Mínimo (mobile) sin cambios; crece hasta 1.6rem en desktop. */
-  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  font-weight: 600;
+  font-size: clamp(1.35rem, 5.5vw, 1.8rem);
+  line-height: 1.45;
   color: var(--color-fondo);
-  max-width: 30rem;
-  margin: 0 auto 0.75rem;
+  overflow-wrap: break-word;
+}
+
+.site-footer__verse-ref {
+  display: block;
+  margin-top: 0.75rem;
+  font-family: var(--font-texto);
+  font-style: normal;
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--color-detalle);
+}
+
+/* Separador: en mobile, trazo corto de 3rem centrado; en desktop se
+   estira al ancho completo del contenedor. */
+.site-footer__divider {
+  width: 3rem;
+  height: 1px;
+  margin: 1.5rem auto;
+  background-color: var(--color-detalle);
+  opacity: 0.4;
+}
+
+.site-footer__bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.site-footer__text,
+.site-footer__date {
+  margin: 0;
+  font-family: var(--font-texto);
+  text-transform: uppercase;
+}
+
+.site-footer__text {
+  /* En mobile la frase va antes que la fecha (en el HTML la fecha está
+     primero porque en desktop queda a la izquierda). */
+  order: -1;
+  max-width: 22rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  line-height: 1.6;
+  color: var(--color-fondo);
+  opacity: 0.8;
 }
 
 .site-footer__date {
-  /* Ídem: mismo tamaño de siempre en mobile, un poco más grande en desktop. */
-  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  font-size: 0.7rem;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--color-detalle);
 }
+
 
 /* ==========================================================================
    RESPONSIVE (mobile-first ya aplicado arriba; ajustes para pantallas grandes)
@@ -1385,6 +1448,44 @@ section {
        las demás secciones en este mismo breakpoint — así el footer tiene
        más presencia y no se ve chico comparado con el resto del sitio. */
     padding: 7rem 2rem;
+  }
+
+  .site-footer__logo {
+    /* clamp(): crece pasado ~875px de viewport, hasta 130px. */
+    width: clamp(70px, 8vw, 130px);
+  }
+
+  .site-footer__verse-text {
+    font-size: clamp(1.35rem, 3.4vw, 2.1rem);
+  }
+
+  .site-footer__verse-ref {
+    font-size: 0.8rem;
+  }
+
+  .site-footer__divider {
+    width: 100%;
+    margin: 2rem 0;
+  }
+
+  .site-footer__bottom {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .site-footer__text {
+    order: 0;
+    max-width: none;
+    font-size: clamp(0.85rem, 1.5vw, 1rem);
+    letter-spacing: 0.12em;
+    text-align: right;
+  }
+
+  .site-footer__date {
+    font-size: clamp(0.8rem, 1.2vw, 1rem);
+    text-align: left;
   }
 
   /* Solo el botón de la pantalla de bienvenida: no tocamos .btn (afectaría
