@@ -1140,14 +1140,6 @@ section {
   text-align: center;
 }
 
-.rsvp-note {
-  font-size: 0.8rem;
-  font-style: italic;
-  color: var(--color-texto-claro);
-  margin-top: -0.5rem;
-  margin-bottom: 1rem;
-}
-
 .rsvp-reminder {
   /* --color-fondo (no -secundario): la sección .rsvp ya usa
      --color-fondo-secundario de fondo, así que este es el tono que
